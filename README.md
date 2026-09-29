@@ -67,6 +67,18 @@ flowchart LR
 See [Architecture](docs/architecture.md), [ERD](docs/erd.md), and the complete
 [API reference](docs/API.md) for detailed diagrams and request examples.
 
+## Screenshots
+
+Capture these presentation-ready states from the running application before
+submission and add the image links here:
+
+1. Login page at `/login`.
+2. Passenger dashboard at `/passenger`.
+3. Driver dashboard at `/driver`.
+4. Passenger pool card after Nusrat and Rafiq are matched.
+
+The seeded accounts and waiting pool below reproduce the required views.
+
 ## Local setup
 
 ### Prerequisites
