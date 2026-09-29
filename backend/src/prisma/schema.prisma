@@ -5,3 +5,88 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Role {
+  PASSENGER
+  DRIVER
+}
+
+enum RideStatus {
+  REQUESTED
+  MATCHED
+  DRIVER_ARRIVED
+  STARTED
+  COMPLETED
+  CANCELLED
+}
+
+enum PoolStatus {
+  WAITING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id       String @id @default(uuid())
+  name     String
+  email    String @unique
+  password String
+  role     Role
+
+  rides Ride[] @relation("PassengerRides")
+  tesla Tesla?
+
+  createdAt DateTime @default(now())
+}
+
+model Tesla {
+  id String @id @default(uuid())
+
+  driverId String @unique
+  driver   User   @relation(fields: [driverId], references: [id])
+
+  name     String
+  capacity Int
+  isOnline Boolean @default(false)
+
+  pools Pool[]
+}
+
+model Ride {
+  id String @id @default(uuid())
+
+  passengerId String
+  passenger   User   @relation("PassengerRides", fields: [passengerId], references: [id])
+
+  pickup      String
+  destination String
+  seats       Int
+  status      RideStatus  @default(REQUESTED)
+  fare        Int
+  poolMember  PoolMember?
+  createdAt   DateTime    @default(now())
+}
+
+model Pool {
+  id String @id @default(uuid())
+
+  teslaId String
+  tesla   Tesla  @relation(fields: [teslaId], references: [id])
+
+  status  PoolStatus   @default(WAITING)
+  members PoolMember[]
+}
+
+model PoolMember {
+  id String @id @default(uuid())
+
+  poolId String
+  pool   Pool   @relation(fields: [poolId], references: [id])
+
+  rideId String @unique
+  ride   Ride   @relation(fields: [rideId], references: [id])
+
+  individualFare Int
+  seats          Int
+}
