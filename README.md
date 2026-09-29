@@ -7,9 +7,8 @@ containerized deployment, and responsive passenger and driver interfaces.
 
 ## Current status
 
-The passenger, matching, fare, authentication, database, seed, frontend, and
-Docker flows are implemented. The driver dashboard UI is prepared, but the
-Step 9 `/driver/*` lifecycle API is not yet implemented in the backend.
+The passenger, driver lifecycle, matching, fare, authentication, database,
+seed, frontend, and Docker flows are implemented.
 
 ## Features
 
@@ -29,11 +28,18 @@ Step 9 `/driver/*` lifecycle API is not yet implemented in the backend.
 - Base fare, distance charge, and flat pool discount stored in integer paisa.
 - Seat release and empty-pool cleanup after cancellation.
 
+### Driver
+
+- View rides assigned to the authenticated driver's Tesla.
+- Accept waiting pools owned by that driver.
+- Mark arrival, start rides, and complete rides through validated transitions.
+- Automatically complete a pool after all member rides finish.
+
 ### Frontend
 
 - Role-aware login and dashboard redirects.
 - Passenger request, pool, cancellation, and history views.
-- Driver lifecycle interface ready for the pending driver API.
+- Driver pool acceptance and ride lifecycle controls.
 - Loading, success, error, and empty states.
 
 ## Technology
@@ -58,8 +64,8 @@ flowchart LR
     P --> D[(PostgreSQL)]
 ```
 
-See [Architecture](docs/architecture.md) and [ERD](docs/erd.md) for detailed
-diagrams.
+See [Architecture](docs/architecture.md), [ERD](docs/erd.md), and the complete
+[API reference](docs/API.md) for detailed diagrams and request examples.
 
 ## Local setup
 
@@ -117,8 +123,9 @@ All seeded accounts use password `password123`.
 | Passenger | Rafiq | `rafiq@test.com` |
 | Passenger | Shirin | `shirin@test.com` |
 
-The seed also creates an online Tesla named **Bullet** with capacity **3**.
-Seeding is atomic and idempotent:
+The seed also creates an online Tesla named **Bullet** with capacity **3**, plus
+a waiting pool containing matched demo rides for Nusrat and Rafiq. Seeding is
+atomic and idempotent:
 
 ```bash
 cd backend
@@ -183,8 +190,8 @@ npm run lint
 npm run build
 ```
 
-Backend coverage includes fare calculation, Tesla capacity, ride ownership,
-and valid or invalid ride state transitions.
+Backend coverage includes validation, fare calculation, all pool eligibility
+rules, Tesla capacity, ride ownership, and ride state transitions.
 
 ## API
 
@@ -203,6 +210,16 @@ and valid or invalid ride state transitions.
 | `GET` | `/rides/my` | Passenger |
 | `PATCH` | `/rides/:id/cancel` | Owning passenger |
 | `GET` | `/pool/my` | Passenger |
+
+### Driver lifecycle
+
+| Method | Endpoint | Access |
+| --- | --- | --- |
+| `GET` | `/driver/rides` | Driver |
+| `PATCH` | `/driver/pool/:id/accept` | Assigned driver |
+| `PATCH` | `/driver/ride/:id/arrival` | Assigned driver |
+| `PATCH` | `/driver/ride/:id/start` | Assigned driver |
+| `PATCH` | `/driver/ride/:id/complete` | Assigned driver |
 
 Authenticated requests use:
 
@@ -242,13 +259,14 @@ both the ride fare and individual pool fare to 13,000 paisa.
 
 ## Limitations
 
-- Driver lifecycle backend routes are pending Step 9.
 - No GPS tracking, traffic-aware routing, payments, or notifications.
 - No refresh tokens or token revocation.
 - The browser stores the demo JWT in `localStorage`; production systems should
   prefer secure, HTTP-only cookies and CSRF protection.
 - Pool destinations are not route-optimized; matching currently uses pickup
   area and capacity only.
+- Requests left waiting without a Tesla are not retried automatically when a
+  vehicle becomes available; the current prototype matches at creation time.
 
 ## AI usage
 

@@ -67,3 +67,26 @@ flowchart LR
 
 Compose health checks enforce this order. The browser-facing API URL is baked
 into the frontend using `NEXT_PUBLIC_API_URL` during the image build.
+
+## Authentication and authorization flow
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as Next.js UI
+    participant API as Express API
+    participant JWT as JWT middleware
+    participant Role as Role middleware
+    participant Handler as Protected handler
+
+    User->>UI: Submit email and password
+    UI->>API: POST /auth/login
+    API-->>UI: Signed JWT + safe user profile
+    UI->>JWT: API request + Bearer JWT
+    JWT->>Role: Verified user ID and role
+    Role->>Handler: Authorized passenger or driver
+    Handler-->>UI: JSON response
+```
+
+Authentication establishes identity. Route-level role middleware then keeps
+passengers out of driver endpoints and drivers out of passenger mutations.
