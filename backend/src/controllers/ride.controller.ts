@@ -6,6 +6,7 @@ import {
   matchRideToPool,
   NoTeslaAvailableError,
 } from "../services/pool.service";
+import { calculateFare } from "../services/fare.service";
 
 const DHAKA_AREAS = [
   "Banani",
@@ -69,7 +70,7 @@ export const createRide = async (
         pickup: canonicalPickup,
         destination: canonicalDestination,
         seats,
-        fare: 0,
+        fare: calculateFare(seats, false),
         status: RideStatus.REQUESTED,
       },
     });

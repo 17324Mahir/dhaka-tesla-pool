@@ -1,5 +1,6 @@
 import { PoolStatus, Prisma, RideStatus } from "@prisma/client";
 import prisma from "../prisma/client";
+import { calculateFare } from "./fare.service";
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
 
@@ -101,19 +102,23 @@ async function matchInTransaction(rideId: string) {
         0,
       );
       const totalSeats = usedSeats + ride.seats;
+      const pooledFare = calculateFare(ride.seats, true);
 
       await tx.poolMember.create({
         data: {
           poolId: selectedPool.id,
           rideId: ride.id,
           seats: ride.seats,
-          individualFare: ride.fare,
+          individualFare: pooledFare,
         },
       });
 
       await tx.ride.update({
         where: { id: ride.id },
-        data: { status: RideStatus.MATCHED },
+        data: {
+          status: RideStatus.MATCHED,
+          fare: pooledFare,
+        },
       });
 
       if (totalSeats === selectedPool.tesla.capacity) {
