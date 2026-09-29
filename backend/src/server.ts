@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { Role } from "@prisma/client";
 import authRoutes from "./routes/auth.routes";
+import rideRoutes from "./routes/ride.routes";
 import {
   authenticate,
   authorizeRoles,
@@ -15,6 +16,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use("/auth", authRoutes);
+app.use("/rides", rideRoutes);
 
 app.get("/", (req, res) => {
   res.json({
