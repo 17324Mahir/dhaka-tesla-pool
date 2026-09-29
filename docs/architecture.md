@@ -1,0 +1,69 @@
+# Architecture
+
+## Runtime topology
+
+```mermaid
+flowchart TB
+    subgraph Client
+      Browser[Browser]
+      Next[Next.js App Router UI]
+      Browser --> Next
+    end
+
+    subgraph Application
+      Express[Express API]
+      Auth[JWT and role middleware]
+      Controllers[Controllers]
+      Services[Matching, fare, capacity, state services]
+      Express --> Auth --> Controllers --> Services
+    end
+
+    subgraph Data
+      Prisma[Prisma Client + PostgreSQL adapter]
+      Postgres[(PostgreSQL)]
+      Services --> Prisma --> Postgres
+    end
+
+    Next -->|HTTP JSON + Bearer token| Express
+```
+
+## Request flow
+
+1. The Next.js client authenticates through `POST /auth/login`.
+2. The browser stores the demo JWT and Axios attaches it to API requests.
+3. Express verifies the token and enforces passenger or driver roles.
+4. Controllers validate input and delegate business rules to services.
+5. Prisma executes queries through the official PostgreSQL driver adapter.
+6. Pool matching uses a serializable transaction and retries serialization
+   conflicts to prevent concurrent seat overbooking.
+
+## Ride request sequence
+
+```mermaid
+sequenceDiagram
+    participant P as Passenger UI
+    participant A as Express API
+    participant M as Pool matcher
+    participant DB as PostgreSQL
+
+    P->>A: POST /rides + JWT
+    A->>DB: Create REQUESTED ride (15,000 paisa)
+    A->>M: Match ride
+    M->>DB: Serializable pool/capacity transaction
+    DB-->>M: Pool + member + MATCHED ride
+    M-->>A: Matched pool
+    A-->>P: Ride (13,000 paisa) + pool ID
+```
+
+## Docker startup
+
+```mermaid
+flowchart LR
+    PG[PostgreSQL healthy] --> MIG[Prisma migrate deploy]
+    MIG --> SEED[Optional idempotent seed]
+    SEED --> API[Express healthy]
+    API --> WEB[Next.js starts]
+```
+
+Compose health checks enforce this order. The browser-facing API URL is baked
+into the frontend using `NEXT_PUBLIC_API_URL` during the image build.
