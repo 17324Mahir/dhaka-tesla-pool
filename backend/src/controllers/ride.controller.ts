@@ -1,7 +1,33 @@
-import { RideStatus } from "@prisma/client";
+import { PoolStatus, RideStatus } from "@prisma/client";
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware";
 import prisma from "../prisma/client";
+import {
+  matchRideToPool,
+  NoTeslaAvailableError,
+} from "../services/pool.service";
+
+const DHAKA_AREAS = [
+  "Banani",
+  "Gulshan",
+  "Mohakhali",
+  "Dhanmondi",
+  "Mirpur",
+  "Uttara",
+  "Farmgate",
+  "Bashundhara",
+] as const;
+
+const getCanonicalArea = (value: unknown): string | undefined => {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalizedValue = value.trim().toLowerCase();
+  return DHAKA_AREAS.find(
+    (area) => area.toLowerCase() === normalizedValue,
+  );
+};
 
 export const createRide = async (
   req: AuthRequest,
@@ -14,22 +40,23 @@ export const createRide = async (
     }
 
     const { pickup, destination, seats } = req.body;
+    const canonicalPickup = getCanonicalArea(pickup);
+    const canonicalDestination = getCanonicalArea(destination);
 
     if (
-      typeof pickup !== "string" ||
-      typeof destination !== "string" ||
-      !pickup.trim() ||
-      !destination.trim() ||
+      !canonicalPickup ||
+      !canonicalDestination ||
       !Number.isInteger(seats) ||
       seats < 1
     ) {
       res.status(400).json({
-        message: "Pickup, destination, and a positive seat count are required",
+        message:
+          "Supported pickup and destination areas and a positive seat count are required",
       });
       return;
     }
 
-    if (pickup.trim().toLowerCase() === destination.trim().toLowerCase()) {
+    if (canonicalPickup === canonicalDestination) {
       res.status(400).json({
         message: "Pickup and destination must be different",
       });
@@ -39,15 +66,36 @@ export const createRide = async (
     const ride = await prisma.ride.create({
       data: {
         passengerId: req.user.id,
-        pickup: pickup.trim(),
-        destination: destination.trim(),
+        pickup: canonicalPickup,
+        destination: canonicalDestination,
         seats,
         fare: 0,
         status: RideStatus.REQUESTED,
       },
     });
 
-    res.status(201).json({ message: "Ride requested", ride });
+    try {
+      const pool = await matchRideToPool(ride.id);
+      const matchedRide = pool.members.find(
+        (member) => member.rideId === ride.id,
+      )?.ride;
+
+      res.status(201).json({
+        message: "Ride requested and matched",
+        ride: matchedRide ?? ride,
+        poolId: pool.id,
+      });
+    } catch (error) {
+      if (error instanceof NoTeslaAvailableError) {
+        res.status(202).json({
+          message: "Ride requested; waiting for an available Tesla",
+          ride,
+        });
+        return;
+      }
+
+      throw error;
+    }
   } catch (error) {
     console.error("Ride creation failed:", error);
     res.status(500).json({ message: "Ride creation failed" });
@@ -115,9 +163,34 @@ export const cancelRide = async (
       return;
     }
 
-    const updatedRide = await prisma.ride.update({
-      where: { id },
-      data: { status: RideStatus.CANCELLED },
+    const updatedRide = await prisma.$transaction(async (tx) => {
+      const updated = await tx.ride.update({
+        where: { id },
+        data: { status: RideStatus.CANCELLED },
+      });
+
+      const membership = await tx.poolMember.findUnique({
+        where: { rideId: id },
+      });
+
+      if (membership) {
+        await tx.poolMember.delete({ where: { rideId: id } });
+
+        const remainingMembers = await tx.poolMember.count({
+          where: { poolId: membership.poolId },
+        });
+
+        if (remainingMembers === 0) {
+          await tx.pool.delete({ where: { id: membership.poolId } });
+        } else {
+          await tx.pool.update({
+            where: { id: membership.poolId },
+            data: { status: PoolStatus.WAITING },
+          });
+        }
+      }
+
+      return updated;
     });
 
     res.json({ message: "Ride cancelled", ride: updatedRide });

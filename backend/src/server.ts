@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { Role } from "@prisma/client";
 import authRoutes from "./routes/auth.routes";
 import rideRoutes from "./routes/ride.routes";
+import poolRoutes from "./routes/pool.routes";
 import {
   authenticate,
   authorizeRoles,
@@ -17,6 +18,7 @@ app.use(cors());
 app.use(express.json());
 app.use("/auth", authRoutes);
 app.use("/rides", rideRoutes);
+app.use("/pool", poolRoutes);
 
 app.get("/", (req, res) => {
   res.json({
