@@ -2,6 +2,8 @@ import { PoolStatus, RideStatus } from "@prisma/client";
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware";
 import prisma from "../prisma/client";
+import { isRideOwner } from "../services/authorization.service";
+import { canTransitionRide } from "../services/ride-state.service";
 import {
   matchRideToPool,
   NoTeslaAvailableError,
@@ -149,15 +151,12 @@ export const cancelRide = async (
       return;
     }
 
-    if (ride.passengerId !== req.user.id) {
+    if (!isRideOwner(ride.passengerId, req.user.id)) {
       res.status(403).json({ message: "Not your ride" });
       return;
     }
 
-    if (
-      ride.status !== RideStatus.REQUESTED &&
-      ride.status !== RideStatus.MATCHED
-    ) {
+    if (!canTransitionRide(ride.status, RideStatus.CANCELLED)) {
       res.status(400).json({
         message: "Ride can no longer be cancelled",
       });

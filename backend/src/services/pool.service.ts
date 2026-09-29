@@ -1,6 +1,8 @@
 import { PoolStatus, Prisma, RideStatus } from "@prisma/client";
 import prisma from "../prisma/client";
+import { hasPoolCapacity } from "./capacity.service";
 import { calculateFare } from "./fare.service";
+import { canTransitionRide } from "./ride-state.service";
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
 
@@ -34,7 +36,7 @@ async function matchInTransaction(rideId: string) {
         });
       }
 
-      if (ride.status !== RideStatus.REQUESTED) {
+      if (!canTransitionRide(ride.status, RideStatus.MATCHED)) {
         throw new PoolMatchError("Ride is not available for matching");
       }
 
@@ -67,7 +69,11 @@ async function matchInTransaction(rideId: string) {
           0,
         );
 
-        return usedSeats + ride.seats <= pool.tesla.capacity;
+        return hasPoolCapacity(
+          pool.tesla.capacity,
+          usedSeats,
+          ride.seats,
+        );
       });
 
       if (!selectedPool) {
