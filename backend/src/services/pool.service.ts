@@ -1,7 +1,7 @@
 import { PoolStatus, Prisma, RideStatus } from "@prisma/client";
 import prisma from "../prisma/client";
-import { hasPoolCapacity } from "./capacity.service";
 import { calculateFare } from "./fare.service";
+import { isPoolMatchEligible } from "./matching.service";
 import { canTransitionRide } from "./ride-state.service";
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
@@ -58,7 +58,12 @@ async function matchInTransaction(rideId: string) {
         },
         include: {
           tesla: true,
-          members: { select: { seats: true } },
+          members: {
+            select: {
+              seats: true,
+              ride: { select: { pickup: true } },
+            },
+          },
         },
         orderBy: { id: "asc" },
       });
@@ -69,10 +74,20 @@ async function matchInTransaction(rideId: string) {
           0,
         );
 
-        return hasPoolCapacity(
-          pool.tesla.capacity,
-          usedSeats,
-          ride.seats,
+        const pickup = pool.members[0]?.ride.pickup;
+
+        return Boolean(
+          pickup &&
+            isPoolMatchEligible(
+              {
+                pickup,
+                status: pool.status,
+                isTeslaOnline: pool.tesla.isOnline,
+                capacity: pool.tesla.capacity,
+                usedSeats,
+              },
+              { pickup: ride.pickup, seats: ride.seats },
+            ),
         );
       });
 
@@ -81,6 +96,11 @@ async function matchInTransaction(rideId: string) {
           where: {
             isOnline: true,
             capacity: { gte: ride.seats },
+            pools: {
+              none: {
+                status: { in: [PoolStatus.WAITING, PoolStatus.ACTIVE] },
+              },
+            },
           },
           orderBy: { id: "asc" },
         });
@@ -96,18 +116,18 @@ async function matchInTransaction(rideId: string) {
           },
           include: {
             tesla: true,
-            members: { select: { seats: true } },
+            members: {
+              select: {
+                seats: true,
+                ride: { select: { pickup: true } },
+              },
+            },
           },
         });
 
         selectedPool = newPool;
       }
 
-      const usedSeats = selectedPool.members.reduce(
-        (total, member) => total + member.seats,
-        0,
-      );
-      const totalSeats = usedSeats + ride.seats;
       const pooledFare = calculateFare(ride.seats, true);
 
       await tx.poolMember.create({
@@ -126,13 +146,6 @@ async function matchInTransaction(rideId: string) {
           fare: pooledFare,
         },
       });
-
-      if (totalSeats === selectedPool.tesla.capacity) {
-        await tx.pool.update({
-          where: { id: selectedPool.id },
-          data: { status: PoolStatus.ACTIVE },
-        });
-      }
 
       return tx.pool.findUniqueOrThrow({
         where: { id: selectedPool.id },

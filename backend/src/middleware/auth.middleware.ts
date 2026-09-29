@@ -53,14 +53,3 @@ export const authenticate = (
     res.status(401).json({ message: "Invalid token" });
   }
 };
-
-export const authorizeRoles =
-  (...roles: Role[]) =>
-  (req: AuthRequest, res: Response, next: NextFunction): void => {
-    if (!req.user || !roles.includes(req.user.role)) {
-      res.status(403).json({ message: "Forbidden" });
-      return;
-    }
-
-    next();
-  };

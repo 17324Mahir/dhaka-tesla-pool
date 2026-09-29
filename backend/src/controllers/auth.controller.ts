@@ -1,9 +1,13 @@
 import "dotenv/config";
-import { Prisma, Role } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import prisma from "../prisma/client";
+import {
+  LoginBody,
+  RegisterBody,
+} from "../validation/request.schemas";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -13,41 +17,23 @@ if (!JWT_SECRET) {
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, password, role } = req.body;
-
-    if (
-      typeof name !== "string" ||
-      typeof email !== "string" ||
-      typeof password !== "string" ||
-      typeof role !== "string" ||
-      !name.trim() ||
-      !email.trim() ||
-      password.length < 6 ||
-      !Object.values(Role).includes(role as Role)
-    ) {
-      res.status(400).json({
-        message: "Name, email, password, and a valid role are required",
-      });
-      return;
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
+    const { name, email, password, role } = req.body as RegisterBody;
     const existingUser = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
+      where: { email },
     });
 
     if (existingUser) {
-      res.status(400).json({ message: "Email already exists" });
+      res.status(409).json({ message: "Email already exists" });
       return;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
-        name: name.trim(),
-        email: normalizedEmail,
+        name,
+        email,
         password: hashedPassword,
-        role: role as Role,
+        role,
       },
     });
 
@@ -65,7 +51,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      res.status(400).json({ message: "Email already exists" });
+      res.status(409).json({ message: "Email already exists" });
       return;
     }
 
@@ -76,26 +62,21 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password } = req.body;
-
-    if (typeof email !== "string" || typeof password !== "string") {
-      res.status(400).json({ message: "Email and password are required" });
-      return;
-    }
+    const { email, password } = req.body as LoginBody;
 
     const user = await prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
+      where: { email },
     });
 
     if (!user) {
-      res.status(404).json({ message: "User not found" });
+      res.status(401).json({ message: "Invalid email or password" });
       return;
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
 
     if (!validPassword) {
-      res.status(401).json({ message: "Invalid password" });
+      res.status(401).json({ message: "Invalid email or password" });
       return;
     }
 

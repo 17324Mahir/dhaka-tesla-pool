@@ -75,7 +75,7 @@ export default function PassengerDashboard() {
     const user = getStoredUser();
 
     if (!user || user.role !== "PASSENGER") {
-      router.replace("/");
+      router.replace("/login");
       return;
     }
 
@@ -125,7 +125,7 @@ export default function PassengerDashboard() {
 
   function logout() {
     clearSession();
-    router.replace("/");
+    router.replace("/login");
   }
 
   return (

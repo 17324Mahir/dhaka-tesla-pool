@@ -15,6 +15,15 @@ interface DriverRide {
   passenger?: {
     name: string;
   };
+  poolMember?: {
+    pool: {
+      id: string;
+      status: string;
+      tesla: {
+        name: string;
+      };
+    };
+  };
 }
 
 const nextAction: Record<string, { label: string; endpoint: string }> = {
@@ -29,6 +38,7 @@ export default function DriverDashboard() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingId, setPendingId] = useState("");
 
   const loadRides = useCallback(async () => {
     try {
@@ -46,7 +56,7 @@ export default function DriverDashboard() {
     const user = getStoredUser();
 
     if (!user || user.role !== "DRIVER") {
-      router.replace("/");
+      router.replace("/login");
       return;
     }
 
@@ -66,6 +76,7 @@ export default function DriverDashboard() {
 
     setError("");
     setMessage("");
+    setPendingId(ride.id);
 
     try {
       await api.patch(`/driver/ride/${ride.id}/${action.endpoint}`);
@@ -73,12 +84,39 @@ export default function DriverDashboard() {
       await loadRides();
     } catch (updateError) {
       setError(getApiError(updateError, "Could not update the ride"));
+    } finally {
+      setPendingId("");
+    }
+  }
+
+  async function acceptPool(ride: DriverRide) {
+    const pool = ride.poolMember?.pool;
+
+    if (!pool) {
+      setError("This ride is not assigned to a pool");
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setPendingId(pool.id);
+
+    try {
+      const response = await api.patch<{ message: string }>(
+        `/driver/pool/${pool.id}/accept`,
+      );
+      setMessage(response.data.message);
+      await loadRides();
+    } catch (acceptError) {
+      setError(getApiError(acceptError, "Could not accept the pool"));
+    } finally {
+      setPendingId("");
     }
   }
 
   function logout() {
     clearSession();
-    router.replace("/");
+    router.replace("/login");
   }
 
   return (
@@ -124,19 +162,35 @@ export default function DriverDashboard() {
               <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/55">No ride requests are available.</p>
             ) : rides.map((ride) => {
               const action = nextAction[ride.status];
+              const pool = ride.poolMember?.pool;
+              const isWaitingForAcceptance = pool?.status === "WAITING";
 
               return (
                 <article key={ride.id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-lg font-semibold">{ride.pickup} → {ride.destination}</p>
-                      <p className="mt-2 text-sm text-white/55">{ride.passenger?.name ?? "Passenger"} · {ride.seats} seat{ride.seats > 1 ? "s" : ""}</p>
+                      <p className="mt-2 text-sm text-white/55">{ride.passenger?.name ?? "Passenger"} · {ride.seats} seat{ride.seats > 1 ? "s" : ""} · {pool?.tesla.name ?? "Tesla"}</p>
                     </div>
                     <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-200">{ride.status.replaceAll("_", " ")}</span>
                   </div>
-                  {action && (
-                    <button className="mt-6 w-full rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#083c2d] hover:bg-emerald-200" onClick={() => void updateRide(ride)}>{action.label}</button>
-                  )}
+                  {isWaitingForAcceptance && pool ? (
+                    <button
+                      className="mt-6 w-full rounded-xl bg-amber-200 px-4 py-3 text-sm font-semibold text-[#4b3511] hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={Boolean(pendingId)}
+                      onClick={() => void acceptPool(ride)}
+                    >
+                      {pendingId === pool.id ? "Accepting…" : "Accept pool"}
+                    </button>
+                  ) : action ? (
+                    <button
+                      className="mt-6 w-full rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#083c2d] hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={Boolean(pendingId)}
+                      onClick={() => void updateRide(ride)}
+                    >
+                      {pendingId === ride.id ? "Updating…" : action.label}
+                    </button>
+                  ) : null}
                 </article>
               );
             })}

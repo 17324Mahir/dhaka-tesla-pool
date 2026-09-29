@@ -1,4 +1,4 @@
-import { PoolStatus, RideStatus } from "@prisma/client";
+import { RideStatus } from "@prisma/client";
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware";
 import prisma from "../prisma/client";
@@ -9,28 +9,7 @@ import {
   NoTeslaAvailableError,
 } from "../services/pool.service";
 import { calculateFare } from "../services/fare.service";
-
-const DHAKA_AREAS = [
-  "Banani",
-  "Gulshan",
-  "Mohakhali",
-  "Dhanmondi",
-  "Mirpur",
-  "Uttara",
-  "Farmgate",
-  "Bashundhara",
-] as const;
-
-const getCanonicalArea = (value: unknown): string | undefined => {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  const normalizedValue = value.trim().toLowerCase();
-  return DHAKA_AREAS.find(
-    (area) => area.toLowerCase() === normalizedValue,
-  );
-};
+import { CreateRideBody } from "../validation/request.schemas";
 
 export const createRide = async (
   req: AuthRequest,
@@ -42,35 +21,13 @@ export const createRide = async (
       return;
     }
 
-    const { pickup, destination, seats } = req.body;
-    const canonicalPickup = getCanonicalArea(pickup);
-    const canonicalDestination = getCanonicalArea(destination);
-
-    if (
-      !canonicalPickup ||
-      !canonicalDestination ||
-      !Number.isInteger(seats) ||
-      seats < 1
-    ) {
-      res.status(400).json({
-        message:
-          "Supported pickup and destination areas and a positive seat count are required",
-      });
-      return;
-    }
-
-    if (canonicalPickup === canonicalDestination) {
-      res.status(400).json({
-        message: "Pickup and destination must be different",
-      });
-      return;
-    }
+    const { pickup, destination, seats } = req.body as CreateRideBody;
 
     const ride = await prisma.ride.create({
       data: {
         passengerId: req.user.id,
-        pickup: canonicalPickup,
-        destination: canonicalDestination,
+        pickup,
+        destination,
         seats,
         fare: calculateFare(seats, false),
         status: RideStatus.REQUESTED,
@@ -182,11 +139,6 @@ export const cancelRide = async (
 
         if (remainingMembers === 0) {
           await tx.pool.delete({ where: { id: membership.poolId } });
-        } else {
-          await tx.pool.update({
-            where: { id: membership.poolId },
-            data: { status: PoolStatus.WAITING },
-          });
         }
       }
 

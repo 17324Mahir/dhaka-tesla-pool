@@ -3,8 +3,8 @@ import { Router } from "express";
 import { getMyPool } from "../controllers/pool.controller";
 import {
   authenticate,
-  authorizeRoles,
 } from "../middleware/auth.middleware";
+import { authorizeRoles } from "../middleware/role.middleware";
 
 const router = Router();
 
