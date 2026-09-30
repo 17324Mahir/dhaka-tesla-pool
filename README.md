@@ -67,6 +67,9 @@ flowchart LR
 See [Architecture](docs/architecture.md), [ERD](docs/erd.md), and the complete
 [API reference](docs/API.md) for detailed diagrams and request examples.
 
+For a public demo, follow the [free deployment guide](docs/deployment.md) to
+host PostgreSQL on Neon, the API on Render, and the frontend on Vercel.
+
 ## Screenshots
 
 Capture these presentation-ready states from the running application before

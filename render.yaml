@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: dhaka-tesla-pool-api-mahir
+    runtime: node
+    plan: free
+    region: singapore
+    branch: master
+    rootDir: backend
+    buildCommand: npm ci && npm run prisma:generate && npm run build
+    startCommand: npx prisma migrate deploy && npm run prisma:seed && npm start
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
