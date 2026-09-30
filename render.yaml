@@ -6,7 +6,7 @@ services:
     region: singapore
     branch: master
     rootDir: backend
-    buildCommand: npm ci && npm run prisma:generate && npm run build
+    buildCommand: npm ci --include=dev && npm run prisma:generate && npm run build
     startCommand: npx prisma migrate deploy && npm run prisma:seed && npm start
     healthCheckPath: /
     envVars:
@@ -16,3 +16,5 @@ services:
         generateValue: true
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "22"
