@@ -15,6 +15,8 @@ import { matchWaitingRides } from "./services/pool.service";
 dotenv.config();
 
 const app = express();
+const deploymentVersion =
+  process.env.RENDER_GIT_COMMIT?.slice(0, 7) ?? "development";
 const allowedOrigins = (
   process.env.CORS_ORIGINS ??
   "http://localhost:3000,https://dhaka-tesla-pool-three.vercel.app"
@@ -37,13 +39,14 @@ app.use("/driver", driverRoutes);
 app.get("/", (req, res) => {
   res.json({
     message: "Dhaka Tesla Pool API running",
+    version: deploymentVersion,
   });
 });
 
 app.get("/health/ready", async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ ready: true });
+    res.json({ ready: true, version: deploymentVersion });
   } catch (error) {
     console.error("Readiness check failed:", error);
     res.status(503).json({ ready: false, message: "Database is not ready" });
