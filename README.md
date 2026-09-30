@@ -174,8 +174,8 @@ To remove the database volume as well:
 docker compose down --volumes
 ```
 
-On macOS, AirPlay Receiver may occupy port 5000. Set `BACKEND_PORT=5050` and
-`NEXT_PUBLIC_API_URL=http://localhost:5050` in the root `.env` before building
+On macOS, AirPlay Receiver may occupy port 5000. Set `BACKEND_PORT=5001` and
+`NEXT_PUBLIC_API_URL=http://localhost:5001` in the root `.env` before building
 if that conflict occurs.
 
 ## Database commands
