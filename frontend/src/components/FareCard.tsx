@@ -1,7 +1,12 @@
 export default function FareCard({ fare }: { fare: number }) {
+  const amount = fare / 100;
+
   return (
     <span className="font-medium" aria-label={`${fare} paisa`}>
-      {(fare / 100).toFixed(0)} BDT
+      {amount.toLocaleString("en-BD", {
+        minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+        maximumFractionDigits: 2,
+      })} BDT
     </span>
   );
 }

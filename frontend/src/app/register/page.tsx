@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
 import api, { getApiError } from "@/lib/api";
+import { getStoredUser } from "@/lib/auth";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,6 +15,14 @@ export default function RegisterPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    const user = getStoredUser();
+
+    if (user) {
+      router.replace(user.role === "DRIVER" ? "/driver" : "/passenger");
+    }
+  }, [router]);
 
   async function register(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

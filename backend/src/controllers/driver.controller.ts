@@ -3,6 +3,7 @@ import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware";
 import prisma from "../prisma/client";
 import { canTransitionRide } from "../services/ride-state.service";
+import { calculateReceipt } from "../services/fare.service";
 import {
   DriverStatusBody,
   RideStatusBody,
@@ -65,6 +66,51 @@ export const getDriverRides = async (
   } catch (error) {
     console.error("Cannot fetch driver rides:", error);
     res.status(500).json({ message: "Cannot fetch driver rides" });
+  }
+};
+
+export const getDriverHistory = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "Authentication is required" });
+      return;
+    }
+
+    const rides = await prisma.ride.findMany({
+      where: {
+        status: RideStatus.COMPLETED,
+        poolMember: {
+          pool: { tesla: { driverId: req.user.id } },
+        },
+      },
+      include: {
+        passenger: { select: { id: true, name: true } },
+        poolMember: {
+          select: {
+            pool: {
+              select: {
+                id: true,
+                tesla: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    res.json(
+      rides.map((ride) => ({
+        ...ride,
+        receipt: calculateReceipt(ride.fare, ride.tip),
+      })),
+    );
+  } catch (error) {
+    console.error("Cannot fetch driver history:", error);
+    res.status(500).json({ message: "Cannot fetch driver history" });
   }
 };
 

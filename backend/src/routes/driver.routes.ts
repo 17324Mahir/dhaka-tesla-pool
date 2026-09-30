@@ -5,6 +5,7 @@ import {
   cancelTrip,
   completeTrip,
   getDriverDashboard,
+  getDriverHistory,
   getDriverRides,
   markArrival,
   setDriverStatus,
@@ -27,6 +28,7 @@ router.use(authenticate, authorizeRoles(Role.DRIVER));
 
 router.get("/dashboard", getDriverDashboard);
 router.get("/rides", getDriverRides);
+router.get("/history", getDriverHistory);
 router.patch("/status", validateBody(driverStatusBodySchema), setDriverStatus);
 router.patch(
   "/pool/:id/accept",

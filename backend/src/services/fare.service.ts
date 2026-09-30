@@ -14,3 +14,16 @@ export function calculateFare(seats: number, isPooled: boolean): number {
 
   return finalFareBdt * PAISA_PER_BDT;
 }
+
+export function calculateReceipt(fare: number, tip: number) {
+  if (
+    !Number.isInteger(fare) ||
+    !Number.isInteger(tip) ||
+    fare < 0 ||
+    tip < 0
+  ) {
+    throw new RangeError("Fare and tip must be non-negative integer paisa");
+  }
+
+  return { fare, tip, total: fare + tip };
+}

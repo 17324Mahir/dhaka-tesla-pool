@@ -4,6 +4,7 @@ import {
   cancelRide,
   createRide,
   getMyRides,
+  updateRideTip,
 } from "../controllers/ride.controller";
 import { updateRideStatus } from "../controllers/driver.controller";
 import {
@@ -18,6 +19,7 @@ import {
   createRideBodySchema,
   resourceIdParamsSchema,
   rideStatusBodySchema,
+  rideTipBodySchema,
 } from "../validation/request.schemas";
 
 const router = Router();
@@ -47,6 +49,14 @@ router.patch(
   authorizeRoles(Role.PASSENGER),
   validateParams(resourceIdParamsSchema),
   cancelRide,
+);
+router.patch(
+  "/:id/tip",
+  authenticate,
+  authorizeRoles(Role.PASSENGER),
+  validateParams(resourceIdParamsSchema),
+  validateBody(rideTipBodySchema),
+  updateRideTip,
 );
 router.patch(
   "/:id/status",

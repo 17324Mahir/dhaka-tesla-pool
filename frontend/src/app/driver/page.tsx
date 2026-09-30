@@ -7,6 +7,7 @@ import { clearSession, getStoredUser } from "@/lib/auth";
 import Navbar from "@/components/Navbar";
 import StatusBadge from "@/components/StatusBadge";
 import TeslaCard from "@/components/TeslaCard";
+import FareCard from "@/components/FareCard";
 
 interface DriverRide {
   id: string;
@@ -15,6 +16,12 @@ interface DriverRide {
   seats: number;
   status: string;
   fare: number;
+  tip?: number;
+  receipt?: {
+    fare: number;
+    tip: number;
+    total: number;
+  };
   passenger?: {
     name: string;
   };
@@ -47,6 +54,7 @@ const nextAction: Record<string, { label: string; endpoint: string }> = {
 export default function DriverDashboard() {
   const router = useRouter();
   const [rides, setRides] = useState<DriverRide[]>([]);
+  const [history, setHistory] = useState<DriverRide[]>([]);
   const [tesla, setTesla] = useState<TeslaSummary | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -55,13 +63,15 @@ export default function DriverDashboard() {
 
   const loadRides = useCallback(async () => {
     try {
-      const [ridesResponse, dashboardResponse] = await Promise.all([
+      const [ridesResponse, dashboardResponse, historyResponse] = await Promise.all([
         api.get<DriverRide[]>("/driver/rides"),
         api.get<TeslaSummary>("/driver/dashboard"),
+        api.get<DriverRide[]>("/driver/history"),
       ]);
       setError("");
       setRides(ridesResponse.data);
       setTesla(dashboardResponse.data);
+      setHistory(historyResponse.data);
     } catch (loadError) {
       setError(getApiError(loadError, "Could not load driver rides"));
     } finally {
@@ -80,8 +90,14 @@ export default function DriverDashboard() {
     const timeoutId = window.setTimeout(() => {
       void loadRides();
     }, 0);
+    const intervalId = window.setInterval(() => {
+      void loadRides();
+    }, 5_000);
 
-    return () => window.clearTimeout(timeoutId);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
   }, [loadRides, router]);
 
   async function updateRide(ride: DriverRide) {
@@ -257,6 +273,48 @@ export default function DriverDashboard() {
                 </article>
               );
             })}
+          </div>
+        </section>
+
+        <section className="mt-10 border-t border-white/10 pt-8">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">Trip history</p>
+              <h2 className="mt-2 text-2xl font-semibold">Completed rides and earnings</h2>
+            </div>
+            <p className="text-sm text-white/60">
+              Total earned{" "}
+              <FareCard
+                fare={history.reduce((total, ride) => total + (ride.receipt?.total ?? 0), 0)}
+              />
+            </p>
+          </div>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {history.length === 0 ? (
+              <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/55">
+                Completed rides will appear here with fare and tip details.
+              </p>
+            ) : history.map((ride) => (
+              <article key={ride.id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-semibold">{ride.pickup} → {ride.destination}</p>
+                    <p className="mt-1 text-sm text-white/55">
+                      {ride.passenger?.name ?? "Passenger"} · {ride.seats} seat{ride.seats > 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <StatusBadge status={ride.status} />
+                </div>
+                {ride.receipt && (
+                  <p className="mt-4 text-sm text-white/70">
+                    Fare <FareCard fare={ride.receipt.fare} /> · Tip{" "}
+                    <FareCard fare={ride.receipt.tip} /> · Earned{" "}
+                    <FareCard fare={ride.receipt.total} />
+                  </p>
+                )}
+              </article>
+            ))}
           </div>
         </section>
       </div>

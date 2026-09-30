@@ -35,6 +35,8 @@ erDiagram
       int seats
       RideStatus status
       int fare
+      int tip
+      datetime tipUpdatedAt
       datetime createdAt
       datetime updatedAt
     }
@@ -73,6 +75,6 @@ REQUESTED → MATCHED → DRIVER_ARRIVED → STARTED → COMPLETED
 PoolStatus: WAITING | ACTIVE | COMPLETED | CANCELLED
 ```
 
-Money is stored as integer paisa. A ride can belong to at most one pool because
+Fare and tip money are stored separately as integer paisa. A ride can belong to at most one pool because
 `PoolMember.rideId` is unique, and a driver can own at most one Tesla because
 `Tesla.driverId` is unique.

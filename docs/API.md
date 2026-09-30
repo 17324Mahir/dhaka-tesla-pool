@@ -97,8 +97,8 @@ Every passenger endpoint requires a passenger JWT. Driver tokens receive
 }
 ```
 
-Supported areas are Banani, Gulshan, Mohakhali, Dhanmondi, Mirpur, Uttara,
-Farmgate, and Bashundhara. Seats must be an integer from 1 to 3. Matching is
+Supported areas are Banani, Gulshan, Gulshan 1, Mohakhali, Dhanmondi, Mirpur,
+Uttara, Farmgate, and Bashundhara. Seats must be an integer from 1 to 3. Matching is
 automatic and requires a same-pickup `WAITING` pool, an online Tesla, and
 enough remaining capacity. The existing pool destination must also be within
 5 km of the requested destination according to `src/data/zones.json`.
@@ -139,6 +139,8 @@ No request body. Successful response (`200`):
     "seats": 1,
     "status": "MATCHED",
     "fare": 13000,
+    "tip": 0,
+    "receipt": { "fare": 13000, "tip": 0, "total": 13000 },
     "createdAt": "2026-09-30T10:00:00.000Z",
     "statusHistory": [
       { "status": "REQUESTED", "createdAt": "2026-09-30T10:00:00.000Z" },
@@ -154,6 +156,31 @@ No request body. Successful response (`200`):
 ```
 
 Possible errors: `401`, `403`, or `500` cannot fetch rides.
+
+### Add or update a tip
+
+`PATCH /rides/:id/tip`
+
+The ride must belong to the authenticated passenger and be `COMPLETED`. Money
+is sent as non-negative integer paisa; the tip can be updated later without
+changing the fare.
+
+```json
+{ "tip": 2500 }
+```
+
+Successful response (`200`):
+
+```json
+{
+  "message": "Tip updated",
+  "rideId": "uuid",
+  "receipt": { "fare": 13000, "tip": 2500, "total": 15500 }
+}
+```
+
+Possible errors: `400` invalid ID/body, `401`, `403` not the ride owner, `404`
+ride not found, `409` ride not completed, or `500` update failed.
 
 ### Cancel own ride
 
@@ -267,6 +294,28 @@ Tesla, including safe passenger details and pool state:
 ```
 
 Possible errors: `401`, `403`, or `500` cannot fetch driver rides.
+
+### List completed rides and earnings
+
+`GET /driver/history`
+
+Returns only completed rides assigned to the authenticated driver's Tesla.
+Each record includes the assigned passenger and a separated receipt:
+
+```json
+[
+  {
+    "id": "uuid",
+    "pickup": "Banani",
+    "destination": "Mohakhali",
+    "status": "COMPLETED",
+    "passenger": { "id": "uuid", "name": "Nusrat" },
+    "receipt": { "fare": 13000, "tip": 2500, "total": 15500 }
+  }
+]
+```
+
+Possible errors: `401`, `403`, or `500` cannot fetch driver history.
 
 ### Accept a pool
 

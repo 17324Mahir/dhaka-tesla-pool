@@ -28,6 +28,7 @@ const areaSchema = z
   .enum([
     "Banani",
     "Gulshan",
+    "Gulshan 1",
     "Mohakhali",
     "Dhanmondi",
     "Mirpur",
@@ -40,6 +41,7 @@ const areaSchema = z
       const areas = [
         "Banani",
         "Gulshan",
+        "Gulshan 1",
         "Mohakhali",
         "Dhanmondi",
         "Mirpur",
@@ -94,8 +96,15 @@ export const rideStatusBodySchema = z
   })
   .strict();
 
+export const rideTipBodySchema = z
+  .object({
+    tip: z.number().int().min(0).max(1_000_000),
+  })
+  .strict();
+
 export type RegisterBody = z.infer<typeof registerBodySchema>;
 export type LoginBody = z.infer<typeof loginBodySchema>;
 export type CreateRideBody = z.infer<typeof createRideBodySchema>;
 export type DriverStatusBody = z.infer<typeof driverStatusBodySchema>;
 export type RideStatusBody = z.infer<typeof rideStatusBodySchema>;
+export type RideTipBody = z.infer<typeof rideTipBodySchema>;

@@ -65,6 +65,8 @@ model Ride {
   seats         Int
   status        RideStatus          @default(REQUESTED)
   fare          Int
+  tip           Int                 @default(0)
+  tipUpdatedAt  DateTime?
   poolMember    PoolMember?
   statusHistory RideStatusHistory[]
   createdAt     DateTime            @default(now())

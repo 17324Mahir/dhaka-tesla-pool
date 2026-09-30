@@ -8,8 +8,11 @@ import {
   matchRideToPool,
   NoTeslaAvailableError,
 } from "../services/pool.service";
-import { calculateFare } from "../services/fare.service";
-import { CreateRideBody } from "../validation/request.schemas";
+import { calculateFare, calculateReceipt } from "../services/fare.service";
+import {
+  CreateRideBody,
+  RideTipBody,
+} from "../validation/request.schemas";
 
 export const createRide = async (
   req: AuthRequest,
@@ -97,10 +100,78 @@ export const getMyRides = async (
       orderBy: { createdAt: "desc" },
     });
 
-    res.json(rides);
+    res.json(
+      rides.map((ride) => ({
+        ...ride,
+        receipt: calculateReceipt(ride.fare, ride.tip),
+      })),
+    );
   } catch (error) {
     console.error("Cannot fetch rides:", error);
     res.status(500).json({ message: "Cannot fetch rides" });
+  }
+};
+
+export const updateRideTip = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const { id } = req.params;
+    const { tip } = req.body as RideTipBody;
+
+    if (typeof id !== "string") {
+      res.status(400).json({ message: "Invalid ride ID" });
+      return;
+    }
+
+    const ride = await prisma.ride.findUnique({
+      where: { id },
+      select: { passengerId: true, status: true, fare: true },
+    });
+
+    if (!ride) {
+      res.status(404).json({ message: "Ride not found" });
+      return;
+    }
+
+    if (!isRideOwner(ride.passengerId, req.user.id)) {
+      res.status(403).json({ message: "Not your ride" });
+      return;
+    }
+
+    if (ride.status !== RideStatus.COMPLETED) {
+      res.status(409).json({ message: "Tips can be added after trip completion" });
+      return;
+    }
+
+    const update = await prisma.ride.updateMany({
+      where: {
+        id,
+        passengerId: req.user.id,
+        status: RideStatus.COMPLETED,
+      },
+      data: { tip, tipUpdatedAt: new Date() },
+    });
+
+    if (update.count !== 1) {
+      res.status(409).json({ message: "Ride state changed; refresh and try again" });
+      return;
+    }
+
+    res.json({
+      message: "Tip updated",
+      rideId: id,
+      receipt: calculateReceipt(ride.fare, tip),
+    });
+  } catch (error) {
+    console.error("Tip update failed:", error);
+    res.status(500).json({ message: "Tip update failed" });
   }
 };
 

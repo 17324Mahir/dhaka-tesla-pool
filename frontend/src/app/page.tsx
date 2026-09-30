@@ -1,10 +1,10 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import api, { getApiError } from "@/lib/api";
-import { AuthUser, saveSession } from "@/lib/auth";
+import { AuthUser, getStoredUser, saveSession } from "@/lib/auth";
 
 interface LoginResponse {
   token: string;
@@ -31,6 +31,14 @@ export default function Home() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    const user = getStoredUser();
+
+    if (user) {
+      router.replace(user.role === "DRIVER" ? "/driver" : "/passenger");
+    }
+  }, [router]);
+
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -43,7 +51,7 @@ export default function Home() {
       });
 
       saveSession(response.data.token, response.data.user);
-      router.push(
+      router.replace(
         response.data.user.role === "DRIVER" ? "/driver" : "/passenger",
       );
     } catch (loginError) {

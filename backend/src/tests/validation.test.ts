@@ -4,6 +4,7 @@ import {
   createRideBodySchema,
   loginBodySchema,
   registerBodySchema,
+  rideTipBodySchema,
 } from "../validation/request.schemas";
 
 test("registration normalizes email and rejects unknown fields", () => {
@@ -19,6 +20,12 @@ test("registration normalizes email and rejects unknown fields", () => {
     registerBodySchema.safeParse({ ...valid, admin: true }).success,
     false,
   );
+});
+
+test("tip validation accepts integer paisa and rejects negative values", () => {
+  assert.deepEqual(rideTipBodySchema.parse({ tip: 2_000 }), { tip: 2_000 });
+  assert.equal(rideTipBodySchema.safeParse({ tip: -1 }).success, false);
+  assert.equal(rideTipBodySchema.safeParse({ tip: 12.5 }).success, false);
 });
 
 test("login rejects malformed email addresses", () => {

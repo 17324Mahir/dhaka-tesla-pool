@@ -2,7 +2,7 @@
 
 Dhaka Tesla Pool is a full-stack ride-pooling prototype that groups passengers
 leaving from the same Dhaka area into an available Tesla. It demonstrates
-authentication, capacity-safe matching, pooled fares, ride status tracking,
+authentication, capacity-safe matching, pooled fares and tips, ride status tracking,
 containerized deployment, and responsive passenger and driver interfaces.
 
 ## Current status
@@ -20,9 +20,11 @@ seed, frontend, and Docker flows are implemented.
 ### Passenger
 
 - Register and log in with JWT authentication.
-- Request rides across eight predefined Dhaka areas.
+- Request rides across nine predefined Dhaka areas, including Gulshan 1.
 - Join a same-pickup Tesla pool without exceeding capacity.
 - View current pools, fares, statuses, and ride history.
+- Follow live trip progress and add or update a tip after completion.
+- View an itemized fare, tip, and total receipt.
 - See only their own route, fare, and status inside a shared pool.
 - Cancel owned rides while they are `REQUESTED` or `MATCHED`.
 
@@ -44,12 +46,15 @@ seed, frontend, and Docker flows are implemented.
 - Mark arrival, start rides, and complete rides through validated transitions.
 - Cancel a matched ride and use the role-protected generic status endpoint.
 - Automatically complete a pool after all member rides finish.
+- View completed trips, passenger assignments, tips, and total earnings.
 
 ### Frontend
 
 - Role-aware login and dashboard redirects.
+- Session restoration across refresh and browser Back/Forward navigation.
 - Passenger request, pool, cancellation, and history views.
 - Driver pool acceptance and ride lifecycle controls.
+- Five-second passenger/driver polling for cross-role status and tip updates.
 - Loading, success, error, and empty states.
 
 ## Technology
@@ -227,9 +232,9 @@ npm run lint
 npm run build
 ```
 
-The 21 backend tests cover validation, fare calculation, destination-aware
+The 25 backend tests cover validation, fare/receipt calculation, destination-aware
 pool eligibility, Tesla capacity, serialization-conflict retries, ride
-ownership, passenger privacy, and ride state transitions.
+ownership, passenger privacy, tip validation, and ride state transitions.
 
 ## API
 
@@ -248,6 +253,7 @@ ownership, passenger privacy, and ride state transitions.
 | `GET` | `/rides/my` | Passenger |
 | `GET` | `/rides/history` | Passenger |
 | `PATCH` | `/rides/:id/cancel` | Owning passenger |
+| `PATCH` | `/rides/:id/tip` | Owning passenger after completion |
 | `PATCH` | `/rides/:id/status` | Assigned driver |
 | `GET` | `/pool/my` | Passenger |
 
@@ -257,6 +263,7 @@ ownership, passenger privacy, and ride state transitions.
 | --- | --- | --- |
 | `GET` | `/driver/rides` | Driver |
 | `GET` | `/driver/dashboard` | Driver |
+| `GET` | `/driver/history` | Driver |
 | `PATCH` | `/driver/status` | Driver |
 | `PATCH` | `/driver/pool/:id/accept` | Assigned driver |
 | `PATCH` | `/driver/ride/:id/arrival` | Assigned driver |
@@ -288,10 +295,12 @@ fare = base fare + distance charge - pool discount
 
 Unmatched requests initially store 15,000 paisa. Matching atomically updates
 both the ride fare and individual pool fare to 13,000 paisa.
+Tips are stored separately in integer paisa and never change the calculated
+fare; receipts return `fare`, `tip`, and `total`.
 
 ## Decisions and trade-offs
 
-- Eight canonical Dhaka areas and a 5 km destination-compatibility radius
+- Nine canonical Dhaka areas and a 5 km destination-compatibility radius
   replace maps/geocoding to keep matching deterministic for the assessment.
 - The distance charge is a placeholder rather than a computed route distance.
 - JWTs are stateless and expire after one day.

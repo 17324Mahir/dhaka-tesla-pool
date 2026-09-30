@@ -7,10 +7,13 @@ import { clearSession, getStoredUser } from "@/lib/auth";
 import Navbar from "@/components/Navbar";
 import PoolCard from "@/components/PoolCard";
 import RideCard from "@/components/RideCard";
+import FareCard from "@/components/FareCard";
+import RideProgress from "@/components/RideProgress";
 
 const areas = [
   "Banani",
   "Gulshan",
+  "Gulshan 1",
   "Mohakhali",
   "Dhanmondi",
   "Mirpur",
@@ -26,7 +29,17 @@ interface Ride {
   seats: number;
   status: string;
   fare: number;
+  tip: number;
+  receipt: {
+    fare: number;
+    tip: number;
+    total: number;
+  };
   createdAt: string;
+  statusHistory: Array<{
+    status: string;
+    createdAt: string;
+  }>;
   poolMember?: {
     pool: {
       tesla: { driver: { name: string } };
@@ -61,6 +74,8 @@ export default function PassengerDashboard() {
   const [seats, setSeats] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingTipId, setPendingTipId] = useState("");
+  const [tipDrafts, setTipDrafts] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -92,8 +107,14 @@ export default function PassengerDashboard() {
     const timeoutId = window.setTimeout(() => {
       void loadDashboard();
     }, 0);
+    const intervalId = window.setInterval(() => {
+      void loadDashboard();
+    }, 5_000);
 
-    return () => window.clearTimeout(timeoutId);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
   }, [loadDashboard, router]);
 
   async function requestRide(event: FormEvent<HTMLFormElement>) {
@@ -130,6 +151,34 @@ export default function PassengerDashboard() {
       await loadDashboard();
     } catch (cancelError) {
       setError(getApiError(cancelError, "Cancellation failed"));
+    }
+  }
+
+  async function updateTip(ride: Ride) {
+    const amount = Number(tipDrafts[ride.id] ?? ride.tip / 100);
+
+    if (!Number.isFinite(amount) || amount < 0) {
+      setError("Enter a valid tip amount");
+      return;
+    }
+
+    const tip = Math.round(amount * 100);
+
+    setError("");
+    setMessage("");
+    setPendingTipId(ride.id);
+
+    try {
+      const response = await api.patch<{ message: string }>(
+        `/rides/${ride.id}/tip`,
+        { tip },
+      );
+      setMessage(response.data.message);
+      await loadDashboard();
+    } catch (tipError) {
+      setError(getApiError(tipError, "Could not update the tip"));
+    } finally {
+      setPendingTipId("");
     }
   }
 
@@ -234,8 +283,47 @@ export default function PassengerDashboard() {
                   fare={ride.fare}
                   status={ride.status}
                   driver={ride.poolMember?.pool.tesla.driver.name}
+                  details={(
+                    <>
+                      <RideProgress
+                        history={ride.statusHistory.map((entry) => entry.status)}
+                        currentStatus={ride.status}
+                      />
+                      {ride.status === "COMPLETED" && (
+                        <div className="mt-3 rounded-xl bg-[#f4f7f4] p-3 text-sm text-[#52675e]">
+                          Fare <FareCard fare={ride.receipt.fare} /> · Tip{" "}
+                          <FareCard fare={ride.receipt.tip} /> · Total{" "}
+                          <FareCard fare={ride.receipt.total} />
+                        </div>
+                      )}
+                    </>
+                  )}
                   action={["REQUESTED", "MATCHED"].includes(ride.status) ? (
                     <button className="text-sm font-semibold text-red-600 hover:text-red-800" onClick={() => void cancelRide(ride.id)}>Cancel</button>
+                  ) : ride.status === "COMPLETED" ? (
+                    <div className="flex items-center gap-2">
+                      <label className="sr-only" htmlFor={`tip-${ride.id}`}>Tip amount in BDT</label>
+                      <input
+                        id={`tip-${ride.id}`}
+                        className="w-20 rounded-lg border border-[#cedbd4] px-2 py-2 text-sm outline-none focus:border-emerald-600"
+                        type="number"
+                        min="0"
+                        max="10000"
+                        step="0.01"
+                        value={tipDrafts[ride.id] ?? String(ride.tip / 100)}
+                        onChange={(event) => setTipDrafts((current) => ({
+                          ...current,
+                          [ride.id]: event.target.value,
+                        }))}
+                      />
+                      <button
+                        className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                        disabled={pendingTipId === ride.id}
+                        onClick={() => void updateTip(ride)}
+                      >
+                        {pendingTipId === ride.id ? "Saving…" : "Save tip"}
+                      </button>
+                    </div>
                   ) : undefined}
                 />
               ))}

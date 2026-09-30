@@ -9,6 +9,7 @@ interface RideCardProps {
   status: string;
   driver?: string;
   action?: React.ReactNode;
+  details?: React.ReactNode;
 }
 
 export default function RideCard({
@@ -19,6 +20,7 @@ export default function RideCard({
   status,
   driver,
   action,
+  details,
 }: RideCardProps) {
   return (
     <article className="flex flex-col gap-4 rounded-2xl border border-[#dce6e0] p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -28,6 +30,7 @@ export default function RideCard({
           {seats} seat{seats > 1 ? "s" : ""} · <FareCard fare={fare} />
           {driver ? ` · Driver ${driver}` : ""}
         </p>
+        {details}
       </div>
       <div className="flex items-center gap-3">
         <StatusBadge status={status} />

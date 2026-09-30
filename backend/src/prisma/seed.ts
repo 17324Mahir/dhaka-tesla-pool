@@ -71,6 +71,13 @@ async function main() {
     }
 
     const pooledFare = calculateFare(1, true);
+
+    // Keep repeated demo deployments deterministic instead of retaining stale
+    // lifecycle events or tips from an earlier acceptance-test run.
+    await tx.rideStatusHistory.deleteMany({
+      where: { rideId: { in: [SEED_IDS.nusratRide, SEED_IDS.rafiqRide] } },
+    });
+
     await tx.ride.upsert({
       where: { id: SEED_IDS.nusratRide },
       update: {
@@ -80,6 +87,8 @@ async function main() {
         seats: 1,
         status: RideStatus.MATCHED,
         fare: pooledFare,
+        tip: 0,
+        tipUpdatedAt: null,
       },
       create: {
         id: SEED_IDS.nusratRide,
@@ -89,6 +98,8 @@ async function main() {
         seats: 1,
         status: RideStatus.MATCHED,
         fare: pooledFare,
+        tip: 0,
+        tipUpdatedAt: null,
       },
     });
 
@@ -97,19 +108,23 @@ async function main() {
       update: {
         passengerId: rafiq.id,
         pickup: "Banani",
-        destination: "Gulshan",
+        destination: "Gulshan 1",
         seats: 1,
         status: RideStatus.MATCHED,
         fare: pooledFare,
+        tip: 0,
+        tipUpdatedAt: null,
       },
       create: {
         id: SEED_IDS.rafiqRide,
         passengerId: rafiq.id,
         pickup: "Banani",
-        destination: "Gulshan",
+        destination: "Gulshan 1",
         seats: 1,
         status: RideStatus.MATCHED,
         fare: pooledFare,
+        tip: 0,
+        tipUpdatedAt: null,
       },
     });
 
