@@ -4,7 +4,11 @@ import { AuthRequest } from "../middleware/auth.middleware";
 import prisma from "../prisma/client";
 import { isRideOwner } from "../services/authorization.service";
 import { canTransitionRide } from "../services/ride-state.service";
-import { calculateFare, calculateReceipt } from "../services/fare.service";
+import {
+  calculateFare,
+  calculateReceipt,
+  recalculatePoolFares,
+} from "../services/fare.service";
 import {
   CreateRideBody,
   RideTipBody,
@@ -28,7 +32,7 @@ export const createRide = async (
         pickup,
         destination,
         seats,
-        fare: calculateFare(seats, false),
+        fare: calculateFare(pickup, destination, false),
         status: RideStatus.REQUESTED,
         statusHistory: { create: { status: RideStatus.REQUESTED } },
       },
@@ -208,6 +212,8 @@ export const cancelRide = async (
       });
 
       if (membership) {
+        await recalculatePoolFares(tx, membership.poolId);
+
         const remainingRides = await tx.ride.count({
           where: {
             poolMember: { poolId: membership.poolId },

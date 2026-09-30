@@ -1,6 +1,6 @@
 import { PoolStatus, Prisma, RideStatus } from "@prisma/client";
 import prisma from "../prisma/client";
-import { calculateFare } from "./fare.service";
+import { calculateFare, recalculatePoolFares } from "./fare.service";
 import { isPoolMatchEligible } from "./matching.service";
 import { canTransitionRide } from "./ride-state.service";
 
@@ -202,14 +202,18 @@ async function matchInTransaction(rideId: string, driverId?: string) {
         selectedPool = newPool;
       }
 
-      const pooledFare = calculateFare(ride.seats, true);
+      const estimatedFare = calculateFare(
+        ride.pickup,
+        ride.destination,
+        false,
+      );
 
       await tx.poolMember.create({
         data: {
           poolId: selectedPool.id,
           rideId: ride.id,
           seats: ride.seats,
-          individualFare: pooledFare,
+          individualFare: estimatedFare,
         },
       });
 
@@ -217,10 +221,11 @@ async function matchInTransaction(rideId: string, driverId?: string) {
         where: { id: ride.id },
         data: {
           status: RideStatus.MATCHED,
-          fare: pooledFare,
           statusHistory: { create: { status: RideStatus.MATCHED } },
         },
       });
+
+      await recalculatePoolFares(tx, selectedPool.id);
 
       return tx.pool.findUniqueOrThrow({
         where: { id: selectedPool.id },

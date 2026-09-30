@@ -1,24 +1,35 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { calculateFare, calculateReceipt } from "../services/fare.service";
+import {
+  calculateFare,
+  calculateReceipt,
+  calculateSharedFares,
+} from "../services/fare.service";
 
-test("pooled ride should apply the flat discount", () => {
-  assert.equal(calculateFare(1, true), 13_000);
+test("fare uses each passenger's route distance", () => {
+  assert.equal(calculateFare("Banani", "Mohakhali", false), 5_192);
+  assert.equal(calculateFare("Banani", "Gulshan 1", false), 5_095);
 });
 
-test("unpooled ride should not apply the discount", () => {
-  assert.equal(calculateFare(1, false), 15_000);
+test("pool discount applies only when at least two passengers share", () => {
+  const nusrat = { pickup: "Banani", destination: "Mohakhali" };
+  const rafiq = { pickup: "Banani", destination: "Gulshan 1" };
+
+  assert.deepEqual(calculateSharedFares([nusrat]), [5_192]);
+  assert.deepEqual(calculateSharedFares([nusrat, rafiq]), [4_154, 4_076]);
+  assert.deepEqual(calculateSharedFares([nusrat]), [5_192]);
 });
 
-test("fare calculation should reject invalid seat counts", () => {
-  assert.throws(() => calculateFare(0, true), RangeError);
+test("fare calculation rejects unsupported or identical areas", () => {
+  assert.throws(() => calculateFare("Banani", "Banani", false), RangeError);
+  assert.throws(() => calculateFare("Banani", "Unknown", false), RangeError);
 });
 
 test("receipt keeps fare and tip separate and calculates the total", () => {
-  assert.deepEqual(calculateReceipt(13_000, 2_000), {
-    fare: 13_000,
+  assert.deepEqual(calculateReceipt(4_154, 2_000), {
+    fare: 4_154,
     tip: 2_000,
-    total: 15_000,
+    total: 6_154,
   });
-  assert.throws(() => calculateReceipt(13_000, -1), RangeError);
+  assert.throws(() => calculateReceipt(4_154, -1), RangeError);
 });

@@ -28,8 +28,8 @@ Validation errors use HTTP `400` and include field-level details:
 
 ```json
 {
-  "name": "Nusrat",
-  "email": "nusrat@example.com",
+  "name": "Amina",
+  "email": "amina@example.com",
   "password": "password123",
   "role": "PASSENGER"
 }
@@ -45,8 +45,8 @@ The driver must go online before waiting passenger requests can be matched.
   "message": "User registered successfully",
   "user": {
     "id": "uuid",
-    "name": "Nusrat",
-    "email": "nusrat@example.com",
+    "name": "Amina",
+    "email": "amina@example.com",
     "role": "PASSENGER"
   }
 }
@@ -74,7 +74,7 @@ Successful response (`200`):
   "token": "jwt",
   "user": {
     "id": "uuid",
-    "name": "Nusrat",
+    "name": "Amina",
     "role": "PASSENGER"
   }
 }
@@ -117,10 +117,15 @@ Saved response (`202`):
     "destination": "Mohakhali",
     "seats": 1,
     "status": "REQUESTED",
-    "fare": 15000
+    "fare": 5192
   }
 }
 ```
+
+The saved fare is the passenger's full route fare. If a driver later accepts a
+second compatible passenger into the same Tesla, each active member receives a
+20% discount on their own route fare. The API recalculates the remaining fare
+when an active member joins or cancels.
 
 Possible errors: `400` invalid request, `401` missing or invalid token, `403`
 wrong role, `500` creation failed.
@@ -139,9 +144,9 @@ No request body. Successful response (`200`):
     "destination": "Mohakhali",
     "seats": 1,
     "status": "MATCHED",
-    "fare": 13000,
+    "fare": 4154,
     "tip": 0,
-    "receipt": { "fare": 13000, "tip": 0, "total": 13000 },
+    "receipt": { "fare": 4154, "tip": 0, "total": 4154 },
     "createdAt": "2026-09-30T10:00:00.000Z",
     "statusHistory": [
       { "status": "REQUESTED", "createdAt": "2026-09-30T10:00:00.000Z" },
@@ -149,7 +154,7 @@ No request body. Successful response (`200`):
     ],
     "poolMember": {
       "pool": {
-        "tesla": { "name": "Bullet", "driver": { "name": "Jashim" } }
+        "tesla": { "name": "Model Y 01", "driver": { "name": "Rahim" } }
       }
     }
   }
@@ -176,7 +181,7 @@ Successful response (`200`):
 {
   "message": "Tip updated",
   "rideId": "uuid",
-  "receipt": { "fare": 13000, "tip": 2500, "total": 15500 }
+  "receipt": { "fare": 4154, "tip": 2500, "total": 6654 }
 }
 ```
 
@@ -213,20 +218,20 @@ route, fare, status, name, or identifier:
   {
     "id": "uuid",
     "status": "WAITING",
-    "tesla": { "id": "uuid", "name": "Bullet", "capacity": 3 },
+    "tesla": { "id": "uuid", "name": "Model Y 01", "capacity": 3 },
     "memberCount": 2,
     "usedSeats": 2,
     "availableSeats": 1,
     "myMembership": {
       "id": "uuid",
       "seats": 1,
-      "individualFare": 13000,
+      "individualFare": 4154,
       "ride": {
         "id": "uuid",
         "pickup": "Banani",
         "destination": "Mohakhali",
         "status": "MATCHED",
-        "fare": 13000
+        "fare": 4154
       }
     }
   }
@@ -249,7 +254,7 @@ Returns the assigned Tesla's online state and capacity summary:
 ```json
 {
   "id": "uuid",
-  "name": "Bullet",
+  "name": "Model Y 01",
   "capacity": 3,
   "isOnline": true,
   "currentArea": "Banani",
@@ -299,13 +304,13 @@ Tesla, including safe passenger details and pool state:
     "pickup": "Banani",
     "destination": "Mohakhali",
     "status": "MATCHED",
-    "fare": 13000,
-    "passenger": { "id": "uuid", "name": "Nusrat" },
+    "fare": 4154,
+    "passenger": { "id": "uuid", "name": "Amina" },
     "poolMember": {
       "pool": {
         "id": "uuid",
         "status": "WAITING",
-        "tesla": { "id": "uuid", "name": "Bullet" }
+        "tesla": { "id": "uuid", "name": "Model Y 01" }
       }
     }
   }
@@ -328,8 +333,8 @@ Each record includes the assigned passenger and a separated receipt:
     "pickup": "Banani",
     "destination": "Mohakhali",
     "status": "COMPLETED",
-    "passenger": { "id": "uuid", "name": "Nusrat" },
-    "receipt": { "fare": 13000, "tip": 2500, "total": 15500 }
+    "passenger": { "id": "uuid", "name": "Amina" },
+    "receipt": { "fare": 4154, "tip": 2500, "total": 6654 }
   }
 ]
 ```

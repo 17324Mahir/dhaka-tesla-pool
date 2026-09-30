@@ -3,7 +3,10 @@ import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware";
 import prisma from "../prisma/client";
 import { canTransitionRide } from "../services/ride-state.service";
-import { calculateReceipt } from "../services/fare.service";
+import {
+  calculateReceipt,
+  recalculatePoolFares,
+} from "../services/fare.service";
 import {
   matchRideToDriver,
   NoTeslaAvailableError,
@@ -512,6 +515,10 @@ export async function transitionRide(
       await tx.rideStatusHistory.create({
         data: { rideId: id, status: nextStatus },
       });
+
+      if (nextStatus === RideStatus.CANCELLED) {
+        await recalculatePoolFares(tx, pool.id);
+      }
 
       let poolReleased = false;
 

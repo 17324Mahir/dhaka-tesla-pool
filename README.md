@@ -36,7 +36,8 @@ frontend, and Docker flows are implemented.
 - Passenger requests remain visible to online drivers at the matching pickup area.
 - Serializable matching transactions with retry protection.
 - First-driver-wins request acceptance and `REQUESTED → MATCHED` transition.
-- Base fare, distance charge, and flat pool discount stored in integer paisa.
+- Passenger-specific distance fares with a 20% discount only while sharing.
+- Automatic fare recalculation when a passenger joins or cancels a shared Tesla.
 - Seat release and empty-pool cleanup after cancellation.
 - Persisted ride-status history for lifecycle auditing.
 
@@ -275,21 +276,25 @@ Authorization: Bearer YOUR_JWT
 ## Fare rule
 
 ```text
-fare = base fare + distance charge - pool discount
-     = 50 BDT + 100 BDT - 20 BDT
-     = 130 BDT = 13,000 paisa
+distance charge = rounded route distance in km * 1,500 paisa
+solo fare       = 2,500 paisa base fare + distance charge
+shared fare     = rounded solo fare * 80%
 ```
 
-Unmatched requests initially store 15,000 paisa. Matching atomically updates
-both the ride fare and individual pool fare to 13,000 paisa.
-Tips are stored separately in integer paisa and never change the calculated
-fare; receipts return `fare`, `tip`, and `total`.
+Route distance is calculated from the committed coordinates for the selected
+pickup and destination areas. The 20% discount applies only when at least two
+non-cancelled passengers are members of the same Tesla pool. Each passenger's
+fare uses their own route; fares are recalculated when another passenger joins
+or cancels. For example, Banani to Mohakhali is 5,192 paisa alone and 4,154
+paisa while sharing. Tips are stored separately in integer paisa and never
+change the calculated fare; receipts return `fare`, `tip`, and `total`.
 
 ## Decisions and trade-offs
 
 - Nine canonical Dhaka areas and a 5 km destination-compatibility radius
   replace maps/geocoding to keep matching deterministic for the assessment.
-- The distance charge is a placeholder rather than a computed route distance.
+- Route distance uses straight-line Haversine distance between predefined area
+  coordinates, so it is deterministic but not a traffic-aware road estimate.
 - JWTs are stateless and expire after one day.
 - Pool matching uses serializable database transactions to prioritize capacity
   correctness over maximum write throughput.

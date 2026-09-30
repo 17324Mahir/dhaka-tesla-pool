@@ -24,9 +24,16 @@ export default function PoolCard(props: PoolCardProps) {
         <StatusBadge status={props.status} />
       </div>
       {props.route && typeof props.fare === "number" && (
-        <div className="mt-4 flex items-center justify-between rounded-xl bg-[#f4f7f4] px-3 py-2 text-sm">
-          <span>{props.route}</span>
-          <FareCard fare={props.fare} />
+        <div className="mt-4 rounded-xl bg-[#f4f7f4] px-3 py-2 text-sm">
+          <div className="flex items-center justify-between gap-3">
+            <span>{props.route}</span>
+            <FareCard fare={props.fare} />
+          </div>
+          <p className="mt-1 text-xs text-[#62766d]">
+            {props.memberCount >= 2
+              ? "20% shared-ride discount applied"
+              : "Full fare for now — the discount applies when another passenger shares this Tesla"}
+          </p>
         </div>
       )}
       <p className="mt-3 text-xs text-[#6b7f76]">
