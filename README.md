@@ -84,15 +84,23 @@ host PostgreSQL on Neon, the API on Render, and the frontend on Vercel.
 
 ## Screenshots
 
-Capture these presentation-ready states from the running application before
-submission and add the image links here:
+The following presentation-ready states were captured from the live deployment:
 
-1. Login page at `/login`.
-2. Passenger dashboard at `/passenger/dashboard`.
-3. Driver dashboard at `/driver/dashboard`.
-4. Passenger pool card after Nusrat and Rafiq are matched.
+### Login
 
-The seeded accounts and waiting pool below reproduce the required views.
+![Login page](docs/screenshots/login.png)
+
+### Registration
+
+![Registration page](docs/screenshots/register.png)
+
+### Passenger dashboard and private pool view
+
+![Passenger dashboard](docs/screenshots/passenger-dashboard.png)
+
+### Driver dashboard
+
+![Driver dashboard](docs/screenshots/driver-dashboard.png)
 
 ## Local setup
 
@@ -312,4 +320,4 @@ database queries, API integration checks, and automated tests.
 
 ## Demo video
 
-Demo video link: **TBD**
+[Watch the passenger and driver walkthrough](docs/demo/dhaka-tesla-pool-demo.webm).

@@ -17,12 +17,11 @@ This checklist maps the supplied upgrade roadmap to repository evidence.
 | Docker | Configured | Frontend, backend, and PostgreSQL services with health checks, migrations, and optional seed |
 | Documentation | Complete | README, architecture, ERD, API reference, deployment guide, and this checklist |
 | Git workflow | Complete | `master`, `pre-release`, `release/v1.0.0`, and feature branches with conventional commits |
-| Deployment config | Complete | Render API blueprint, Vercel-ready frontend, pooled app URL plus direct migration URL |
+| Deployment | Complete | Updated master commit verified live on Render and Vercel; pooled app URL plus direct migration URL configured |
+| Presentation assets | Complete | Four live-deployment screenshots and a passenger/driver walkthrough video under `docs/` |
 
-## Submission-only items
+## Submission status
 
-These are not source-code tasks and must be completed by the project owner:
-
-1. Redeploy the updated commit to Render and Vercel.
-2. Capture the four screenshots listed in the README.
-3. Record the demo video and replace the README's `TBD` link.
+The evaluator-facing source code, deployment, screenshots, and walkthrough
+video are complete. The project owner only needs to submit the repository and
+live links through the required course or assessment portal.
