@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import api, { getApiError } from "@/lib/api";
+import api, { getApiError, warmApi } from "@/lib/api";
 import { AuthUser, getStoredUser, saveSession } from "@/lib/auth";
 
 interface LoginResponse {
@@ -30,13 +30,42 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serverStatus, setServerStatus] = useState<
+    "checking" | "waking" | "ready" | "unavailable"
+  >("checking");
 
   useEffect(() => {
     const user = getStoredUser();
 
     if (user) {
       router.replace(user.role === "DRIVER" ? "/driver" : "/passenger");
+      return;
     }
+
+    let active = true;
+    const wakingTimer = window.setTimeout(() => {
+      if (active) {
+        setServerStatus("waking");
+      }
+    }, 2_500);
+
+    void warmApi()
+      .then(() => {
+        if (active) {
+          setServerStatus("ready");
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setServerStatus("unavailable");
+        }
+      })
+      .finally(() => window.clearTimeout(wakingTimer));
+
+    return () => {
+      active = false;
+      window.clearTimeout(wakingTimer);
+    };
   }, [router]);
 
   async function login(event: FormEvent<HTMLFormElement>) {
@@ -84,7 +113,7 @@ export default function Home() {
 
           <div className="grid grid-cols-3 gap-3 text-sm">
             {[
-              ["8", "Dhaka areas"],
+              ["9", "Dhaka areas"],
               ["3", "Seats per Tesla"],
               ["20৳", "Pool saving"],
             ].map(([value, label]) => (
@@ -107,6 +136,26 @@ export default function Home() {
           </div>
 
           <form className="space-y-5" onSubmit={login}>
+            <div
+              className={`rounded-xl px-4 py-3 text-sm ${
+                serverStatus === "ready"
+                  ? "bg-emerald-50 text-emerald-800"
+                  : serverStatus === "unavailable"
+                    ? "bg-red-50 text-red-700"
+                    : "bg-amber-50 text-amber-800"
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              {serverStatus === "ready"
+                ? "Demo server ready"
+                : serverStatus === "waking"
+                  ? "The free demo server was asleep. Waking it now—first login can take about one minute."
+                  : serverStatus === "unavailable"
+                    ? "The demo server is taking longer than expected. You can still try Login."
+                    : "Connecting to the demo server…"}
+            </div>
+
             <label className="block text-sm font-medium">
               Email
               <input
@@ -144,7 +193,11 @@ export default function Home() {
               type="submit"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Signing in…" : "Login"}
+              {isSubmitting
+                ? serverStatus === "ready"
+                  ? "Signing in…"
+                  : "Waking server and signing in…"
+                : "Login"}
             </button>
           </form>
 

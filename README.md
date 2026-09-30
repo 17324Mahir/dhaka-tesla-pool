@@ -282,6 +282,7 @@ Authorization: Bearer YOUR_JWT
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `GET` | `/` | API availability |
+| `GET` | `/health/ready` | API and database readiness |
 | `GET` | `/profile` | Authentication check |
 | `GET` | `/driver-only` | Driver-role check |
 

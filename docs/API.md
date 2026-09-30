@@ -390,6 +390,7 @@ Allowed requested statuses are `DRIVER_ARRIVED`, `STARTED`, `COMPLETED`, and
 | Method | Endpoint | Result |
 | --- | --- | --- |
 | `GET` | `/` | API availability message |
+| `GET` | `/health/ready` | Verifies API and database readiness |
 | `GET` | `/profile` | Verifies any authenticated JWT |
 | `GET` | `/driver-only` | Verifies a driver JWT |
 

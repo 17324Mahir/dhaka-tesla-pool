@@ -9,6 +9,7 @@ import driverRoutes from "./routes/driver.routes";
 import { authenticate } from "./middleware/auth.middleware";
 import { authorizeRoles } from "./middleware/role.middleware";
 import { errorHandler } from "./middleware/error.middleware";
+import prisma from "./prisma/client";
 
 dotenv.config();
 
@@ -36,6 +37,16 @@ app.get("/", (req, res) => {
   res.json({
     message: "Dhaka Tesla Pool API running",
   });
+});
+
+app.get("/health/ready", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ ready: true });
+  } catch (error) {
+    console.error("Readiness check failed:", error);
+    res.status(503).json({ ready: false, message: "Database is not ready" });
+  }
 });
 
 app.get("/profile", authenticate, (_req, res) => {

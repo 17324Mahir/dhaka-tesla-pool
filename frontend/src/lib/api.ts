@@ -3,10 +3,27 @@ import { clearSession, getStoredToken } from "./auth";
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000",
+  timeout: 75_000,
   headers: {
     "Content-Type": "application/json",
   },
 });
+
+let warmupPromise: Promise<void> | null = null;
+
+export function warmApi(): Promise<void> {
+  if (!warmupPromise) {
+    warmupPromise = api
+      .get("/health/ready")
+      .then(() => undefined)
+      .catch((error: unknown) => {
+        warmupPromise = null;
+        throw error;
+      });
+  }
+
+  return warmupPromise;
+}
 
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
@@ -39,6 +56,10 @@ api.interceptors.response.use(
 
 export function getApiError(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
+    if (error.code === "ECONNABORTED") {
+      return "The free demo server is taking longer than expected to wake up. Please try again.";
+    }
+
     const message = error.response?.data?.message;
 
     if (typeof message === "string") {
