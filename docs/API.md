@@ -103,8 +103,11 @@ Every passenger endpoint requires a passenger JWT. Driver tokens receive
 Supported areas are Banani, Gulshan, Gulshan 1, Mohakhali, Dhanmondi, Mirpur,
 Uttara, Farmgate, and Bashundhara. Seats must be an integer from 1 to 3. The
 request stays `REQUESTED` and is shown to online drivers whose current area
-matches its pickup. When a driver accepts it, the API checks remaining capacity
-and destination compatibility according to `src/data/zones.json`.
+matches its pickup when no compatible pool exists. When a compatible Tesla is
+already waiting or active, the new request joins it automatically. Accepting the
+first request also pulls compatible same-pickup waiting requests into the same
+Tesla, up to its remaining capacity. Matching uses destination compatibility
+from `src/data/zones.json`.
 
 Saved response (`202`):
 
@@ -122,10 +125,12 @@ Saved response (`202`):
 }
 ```
 
-The saved fare is the passenger's full route fare. If a driver later accepts a
-second compatible passenger into the same Tesla, each active member receives a
-20% discount on their own route fare. The API recalculates the remaining fare
-when an active member joins or cancels.
+The saved fare is the passenger's full route fare while the request remains
+pending. If it automatically joins an existing pool, the response instead has
+`MATCHED` status and the shared fare. When a second compatible passenger joins
+the same Tesla, each active member receives a 20% discount on their own route
+fare. The API recalculates the remaining fare when an active member joins or
+cancels.
 
 Possible errors: `400` invalid request, `401` missing or invalid token, `403`
 wrong role, `500` creation failed.
@@ -288,7 +293,9 @@ online driver's current area. Offline drivers receive an empty list.
 
 The first eligible driver to accept receives the ride. The API validates the
 driver's online state, current area, compatible destination, and remaining
-capacity. A concurrent later acceptance receives `409`.
+capacity. A concurrent later acceptance receives `409`. After the first request
+is accepted, compatible waiting requests from the same pickup automatically fill
+the Tesla's remaining seats and disappear from the pending list.
 
 ### List assigned rides
 

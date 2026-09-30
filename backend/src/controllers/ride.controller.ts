@@ -10,6 +10,10 @@ import {
   recalculatePoolFares,
 } from "../services/fare.service";
 import {
+  matchRideToExistingPool,
+  NoCompatiblePoolError,
+} from "../services/pool.service";
+import {
   CreateRideBody,
   RideTipBody,
 } from "../validation/request.schemas";
@@ -26,7 +30,7 @@ export const createRide = async (
 
     const { pickup, destination, seats } = req.body as CreateRideBody;
 
-    const ride = await prisma.ride.create({
+    let ride = await prisma.ride.create({
       data: {
         passengerId: req.user.id,
         pickup,
@@ -38,8 +42,20 @@ export const createRide = async (
       },
     });
 
+    let message = "Ride requested; waiting for a nearby driver to accept";
+
+    try {
+      await matchRideToExistingPool(ride.id);
+      ride = await prisma.ride.findUniqueOrThrow({ where: { id: ride.id } });
+      message = "Ride matched with an existing shared Tesla";
+    } catch (error) {
+      if (!(error instanceof NoCompatiblePoolError)) {
+        throw error;
+      }
+    }
+
     res.status(202).json({
-      message: "Ride requested; waiting for a nearby driver to accept",
+      message,
       ride,
     });
   } catch (error) {

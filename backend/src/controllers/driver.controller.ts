@@ -9,6 +9,7 @@ import {
 } from "../services/fare.service";
 import {
   matchRideToDriver,
+  matchWaitingRidesToDriver,
   NoTeslaAvailableError,
   PoolMatchError,
   RideAlreadyAssignedError,
@@ -327,10 +328,16 @@ export const acceptRideRequest = async (
       });
     }
 
+    const additionalMatches = await matchWaitingRidesToDriver(req.user.id);
+
     res.json({
-      message: "Ride request accepted",
+      message:
+        additionalMatches > 0
+          ? `Ride request accepted; ${additionalMatches} compatible waiting request${additionalMatches === 1 ? "" : "s"} joined this Tesla`
+          : "Ride request accepted",
       rideId: id,
       poolId: pool.id,
+      additionalMatches,
     });
   } catch (error) {
     if (error instanceof RideAlreadyAssignedError) {

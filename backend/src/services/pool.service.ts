@@ -38,13 +38,23 @@ export class NoTeslaAvailableError extends PoolMatchError {
   }
 }
 
+export class NoCompatiblePoolError extends PoolMatchError {
+  constructor() {
+    super("No compatible shared Tesla is available yet");
+  }
+}
+
 export class RideAlreadyAssignedError extends PoolMatchError {
   constructor() {
     super("Ride request was already accepted by another driver");
   }
 }
 
-async function matchInTransaction(rideId: string, driverId?: string) {
+async function matchInTransaction(
+  rideId: string,
+  driverId?: string,
+  existingPoolOnly = false,
+) {
   return prisma.$transaction(
     async (tx) => {
       const ride = await tx.ride.findUnique({
@@ -162,6 +172,10 @@ async function matchInTransaction(rideId: string, driverId?: string) {
       });
 
       if (!selectedPool) {
+        if (existingPoolOnly) {
+          throw new NoCompatiblePoolError();
+        }
+
         const tesla = await tx.tesla.findFirst({
           where: {
             isOnline: true,
@@ -243,8 +257,54 @@ export async function matchRideToPool(rideId: string) {
   return withPoolMatchRetries(() => matchInTransaction(rideId));
 }
 
+export async function matchRideToExistingPool(rideId: string) {
+  return withPoolMatchRetries(() => matchInTransaction(rideId, undefined, true));
+}
+
 export async function matchRideToDriver(rideId: string, driverId: string) {
   return withPoolMatchRetries(() => matchInTransaction(rideId, driverId));
+}
+
+export async function matchWaitingRidesToDriver(
+  driverId: string,
+  limit = 50,
+): Promise<number> {
+  const tesla = await prisma.tesla.findUnique({
+    where: { driverId },
+    select: { isOnline: true, currentArea: true },
+  });
+
+  if (!tesla?.isOnline || !tesla.currentArea) {
+    return 0;
+  }
+
+  const waitingRides = await prisma.ride.findMany({
+    where: {
+      status: RideStatus.REQUESTED,
+      poolMember: null,
+      pickup: tesla.currentArea,
+    },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+  });
+
+  let matchedCount = 0;
+
+  for (const waitingRide of waitingRides) {
+    try {
+      await matchRideToDriver(waitingRide.id, driverId);
+      matchedCount += 1;
+    } catch (error) {
+      if (error instanceof PoolMatchError) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  return matchedCount;
 }
 
 export async function matchWaitingRides(limit = 50): Promise<number> {

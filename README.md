@@ -36,6 +36,8 @@ frontend, and Docker flows are implemented.
 - Passenger requests remain visible to online drivers at the matching pickup area.
 - Serializable matching transactions with retry protection.
 - First-driver-wins request acceptance and `REQUESTED → MATCHED` transition.
+- Accepting the first request automatically fills remaining seats with compatible
+  same-pickup requests; later compatible requests join the active pool directly.
 - Passenger-specific distance fares with a 20% discount only while sharing.
 - Automatic fare recalculation when a passenger joins or cancels a shared Tesla.
 - Seat release and empty-pool cleanup after cancellation.
