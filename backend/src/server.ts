@@ -14,7 +14,14 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "https://dhaka-tesla-pool-three.vercel.app",
+    ],
+  }),
+);
 app.use(express.json({ limit: "100kb" }));
 app.use("/auth", authRoutes);
 app.use("/rides", rideRoutes);

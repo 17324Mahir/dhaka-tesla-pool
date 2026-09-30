@@ -6,6 +6,11 @@ This project can be hosted at no cost for personal/demo use with:
 - Render for the Express API.
 - Vercel for the Next.js frontend.
 
+The current deployment is available at:
+
+- Frontend: <https://dhaka-tesla-pool-three.vercel.app>
+- API: <https://dhaka-tesla-pool-api-mahir.onrender.com>
+
 No secret values should be committed to Git. Add them only in the provider
 dashboards.
 
@@ -74,4 +79,3 @@ the seeded accounts:
 
 Test a passenger login, the passenger dashboard, and the driver dashboard.
 Render and Vercel automatically redeploy future pushes to `master`.
-

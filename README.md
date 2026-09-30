@@ -10,6 +10,11 @@ containerized deployment, and responsive passenger and driver interfaces.
 The passenger, driver lifecycle, matching, fare, authentication, database,
 seed, frontend, and Docker flows are implemented.
 
+## Live deployment
+
+- Frontend: <https://dhaka-tesla-pool-three.vercel.app>
+- API: <https://dhaka-tesla-pool-api-mahir.onrender.com>
+
 ## Features
 
 ### Passenger
