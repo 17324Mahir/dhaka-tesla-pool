@@ -57,7 +57,7 @@ api.interceptors.response.use(
 export function getApiError(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     if (error.code === "ECONNABORTED") {
-      return "The free demo server is taking longer than expected to wake up. Please try again.";
+      return "The server is taking longer than expected to respond. Please try again.";
     }
 
     const message = error.response?.data?.message;

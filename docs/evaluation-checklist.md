@@ -11,10 +11,10 @@ This checklist maps the supplied upgrade roadmap to repository evidence.
 | Matching | Complete | Driver-area/pickup match, destination within 5 km, remaining capacity, safe pre-departure joins, first-driver-wins serializable transaction, and conflict retries |
 | Validation/security | Complete | Strict Zod bodies/UUIDs, role guards, ownership checks, and private passenger projections |
 | Automated tests | Complete | 28 passing backend tests plus local API/browser acceptance checks covering fares, tips, capacity, driver location, active-pool joining, lifecycle, privacy, session navigation, ownership, and retry behavior |
-| Seed story | Complete | Nusrat, Rafiq, Shirin, Jashim, Bullet, and a deterministic two-passenger pool that clears stale demo history/tips on reseed |
+| Clean startup | Complete | No shared demo identities; passengers and drivers register their own accounts |
 | Frontend routes | Complete | Login, register, passenger dashboard/request/history, and driver dashboard/rides/trip |
 | Reusable UI | Complete | Navbar, RideCard, RideProgress, StatusBadge, FareCard, TeslaCard, and PoolCard |
-| Docker | Configured | Frontend, backend, and PostgreSQL services with health checks, migrations, and optional seed |
+| Docker | Configured | Frontend, backend, and PostgreSQL services with health checks and migrations |
 | Documentation | Complete | README, architecture, ERD, API reference, deployment guide, and this checklist |
 | Git workflow | Complete | `master`, `pre-release`, `release/v1.0.0`, and feature branches with conventional commits |
 | Deployment | Complete | Updated master commit verified live on Render and Vercel; pooled app URL plus direct migration URL configured |

@@ -25,9 +25,8 @@ dashboards.
    as Render's `DATABASE_URL` and the direct value as
    `DATABASE_URL_UNPOOLED`.
 
-The Render build applies committed Prisma migrations and loads the idempotent
-demo seed once per deployment. The runtime command only starts Express, so a
-free-tier cold wake does not rerun migration and seed work.
+The Render build applies committed Prisma migrations. The runtime command only
+starts Express, so a free-tier cold wake does not rerun migration work.
 
 ## 2. Deploy the backend to Render
 
@@ -52,11 +51,10 @@ https://dhaka-tesla-pool-api-mahir.onrender.com
 
 The free Render service sleeps after 15 minutes without traffic, so its first
 request after an idle period can still take about a minute. The runtime starts
-Express directly without rerunning Prisma migrations or demo seeding.
-The login page immediately calls `/health/ready` to begin waking both the API
-and database while the user enters credentials, and shows the current state so
-the cold start is not mistaken for a frozen form. An always-on paid Render
-instance is required to remove this free-tier cold start completely.
+Express directly without rerunning Prisma migrations. The login page silently
+calls `/health/ready` to begin waking both the API and database while the user
+enters credentials. An always-on paid Render instance is required to remove
+this free-tier cold start completely.
 
 ## 3. Deploy the frontend to Vercel
 
@@ -76,14 +74,6 @@ frontend after changing it.
 
 ## 4. Verify the live application
 
-Check the Render API URL first, then open the Vercel URL and log in with one of
-the seeded accounts:
-
-| Role | Email | Password |
-| --- | --- | --- |
-| Driver | `jashim@test.com` | `password123` |
-| Passenger | `nusrat@test.com` | `password123` |
-| Passenger | `rafiq@test.com` | `password123` |
-
-Test a passenger login, the passenger dashboard, and the driver dashboard.
+Check the Render API URL first, then open the Vercel URL. Register one passenger
+and one driver, test both logins, request a ride, and verify the driver dashboard.
 Render and Vercel automatically redeploy future pushes to `master`.

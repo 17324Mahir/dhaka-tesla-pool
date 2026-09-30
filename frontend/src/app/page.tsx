@@ -11,28 +11,12 @@ interface LoginResponse {
   user: AuthUser;
 }
 
-const demoAccounts = [
-  {
-    label: "Passenger demo",
-    email: "nusrat@test.com",
-    password: "password123",
-  },
-  {
-    label: "Driver demo",
-    email: "jashim@test.com",
-    password: "password123",
-  },
-];
-
 export default function Home() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [serverStatus, setServerStatus] = useState<
-    "checking" | "waking" | "ready" | "unavailable"
-  >("checking");
 
   useEffect(() => {
     const user = getStoredUser();
@@ -42,30 +26,7 @@ export default function Home() {
       return;
     }
 
-    let active = true;
-    const wakingTimer = window.setTimeout(() => {
-      if (active) {
-        setServerStatus("waking");
-      }
-    }, 2_500);
-
-    void warmApi()
-      .then(() => {
-        if (active) {
-          setServerStatus("ready");
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setServerStatus("unavailable");
-        }
-      })
-      .finally(() => window.clearTimeout(wakingTimer));
-
-    return () => {
-      active = false;
-      window.clearTimeout(wakingTimer);
-    };
+    void warmApi().catch(() => undefined);
   }, [router]);
 
   async function login(event: FormEvent<HTMLFormElement>) {
@@ -136,26 +97,6 @@ export default function Home() {
           </div>
 
           <form className="space-y-5" onSubmit={login}>
-            <div
-              className={`rounded-xl px-4 py-3 text-sm ${
-                serverStatus === "ready"
-                  ? "bg-emerald-50 text-emerald-800"
-                  : serverStatus === "unavailable"
-                    ? "bg-red-50 text-red-700"
-                    : "bg-amber-50 text-amber-800"
-              }`}
-              role="status"
-              aria-live="polite"
-            >
-              {serverStatus === "ready"
-                ? "Demo server ready"
-                : serverStatus === "waking"
-                  ? "The free demo server was asleep. Waking it now—first login can take about one minute."
-                  : serverStatus === "unavailable"
-                    ? "The demo server is taking longer than expected. You can still try Login."
-                    : "Connecting to the demo server…"}
-            </div>
-
             <label className="block text-sm font-medium">
               Email
               <input
@@ -193,39 +134,17 @@ export default function Home() {
               type="submit"
               disabled={isSubmitting}
             >
-              {isSubmitting
-                ? serverStatus === "ready"
-                  ? "Signing in…"
-                  : "Waking server and signing in…"
-                : "Login"}
+              {isSubmitting ? "Signing in…" : "Login"}
             </button>
           </form>
 
           <div className="mt-8 border-t border-[#dbe5df] pt-6">
-            <p className="mb-5 text-sm text-[#668176]">
+            <p className="text-sm text-[#668176]">
               New here?{" "}
               <Link className="font-semibold text-emerald-700" href="/register">
                 Create an account
               </Link>
             </p>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-[#668176]">
-              Demo accounts
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {demoAccounts.map((account) => (
-                <button
-                  key={account.label}
-                  type="button"
-                  className="rounded-full border border-[#c8d8cf] bg-white px-3 py-2 text-xs font-medium transition hover:border-emerald-600 hover:text-emerald-700"
-                  onClick={() => {
-                    setEmail(account.email);
-                    setPassword(account.password);
-                  }}
-                >
-                  {account.label}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
       </section>

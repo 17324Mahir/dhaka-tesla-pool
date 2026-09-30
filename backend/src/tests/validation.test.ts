@@ -11,12 +11,12 @@ import {
 test("registration normalizes email and rejects unknown fields", () => {
   const valid = registerBodySchema.parse({
     name: "Nusrat",
-    email: "  NUSRAT@TEST.COM ",
+    email: "  PASSENGER@TEST.COM ",
     password: "password123",
     role: "PASSENGER",
   });
 
-  assert.equal(valid.email, "nusrat@test.com");
+  assert.equal(valid.email, "passenger@test.com");
   assert.equal(
     registerBodySchema.safeParse({ ...valid, admin: true }).success,
     false,

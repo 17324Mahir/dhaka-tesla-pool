@@ -61,7 +61,7 @@ registration failed.
 
 ```json
 {
-  "email": "nusrat@test.com",
+  "email": "passenger@example.com",
   "password": "password123"
 }
 ```

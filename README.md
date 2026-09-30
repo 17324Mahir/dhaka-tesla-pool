@@ -8,7 +8,7 @@ containerized deployment, and responsive passenger and driver interfaces.
 ## Current status
 
 The passenger, driver lifecycle, matching, fare, authentication, database,
-seed, frontend, and Docker flows are implemented.
+frontend, and Docker flows are implemented.
 
 ## Live deployment
 
@@ -30,7 +30,7 @@ seed, frontend, and Docker flows are implemented.
 
 ### Pooling and fares
 
-- Driver-selected pickup areas with three-seat demo capacity.
+- Driver-selected pickup areas with three-seat vehicle capacity.
 - Same-pickup and nearby-destination matching using committed Dhaka coordinates.
 - Compatible passengers may join a waiting or accepted pool until departure.
 - Passenger requests remain visible to online drivers at the matching pickup area.
@@ -137,12 +137,11 @@ JWT_SECRET="replace_with_a_long_random_secret"
 CORS_ORIGINS="http://localhost:3000"
 ```
 
-Create the database, apply migrations, seed it, and start the API:
+Create the database, apply migrations, and start the API:
 
 ```bash
 createdb dhaka_tesla_pool
 npx prisma migrate deploy
-npm run prisma:seed
 npm run dev
 ```
 
@@ -159,26 +158,6 @@ npm run dev
 
 The app is available at `http://localhost:3000`.
 
-## Demo accounts
-
-All seeded accounts use password `password123`.
-
-| Role | Name | Email |
-| --- | --- | --- |
-| Driver | Jashim | `jashim@test.com` |
-| Passenger | Nusrat | `nusrat@test.com` |
-| Passenger | Rafiq | `rafiq@test.com` |
-| Passenger | Shirin | `shirin@test.com` |
-
-The seed also creates an online Tesla named **Bullet** with capacity **3**, plus
-a waiting pool containing matched demo rides for Nusrat and Rafiq. Seeding is
-atomic and idempotent:
-
-```bash
-cd backend
-npm run prisma:seed
-```
-
 ## Docker
 
 Docker Desktop is required on macOS.
@@ -189,7 +168,8 @@ docker compose up --build
 ```
 
 Compose starts PostgreSQL, waits for it to become healthy, applies migrations,
-optionally seeds demo data, starts the backend, and then starts the frontend.
+starts the backend, and then starts the frontend. Create passenger and driver
+accounts from the registration page.
 
 | Service | Default address |
 | --- | --- |
@@ -220,7 +200,6 @@ cd backend
 npx prisma migrate status
 npx prisma migrate deploy
 npm run prisma:generate
-npm run prisma:seed
 npx prisma studio
 ```
 
@@ -321,7 +300,7 @@ fare; receipts return `fare`, `tip`, and `total`.
 
 - No GPS tracking, traffic-aware routing, payments, or notifications.
 - No refresh tokens or token revocation.
-- The browser stores the demo JWT in `localStorage`; production systems should
+- The browser stores the session JWT in `localStorage`; production systems should
   prefer secure, HTTP-only cookies and CSRF protection.
 - Destination proximity is deterministic rather than traffic-aware route
   optimization.

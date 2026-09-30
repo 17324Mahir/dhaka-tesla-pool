@@ -6,7 +6,7 @@ services:
     region: singapore
     branch: master
     rootDir: backend
-    buildCommand: npm ci --include=dev && npm run prisma:generate && npm run build && npx prisma migrate deploy && npm run prisma:seed
+    buildCommand: npm ci --include=dev && npm run prisma:generate && npm run build && npx prisma migrate deploy
     startCommand: npm start
     healthCheckPath: /
     envVars:

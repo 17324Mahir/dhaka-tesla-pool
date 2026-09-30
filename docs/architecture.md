@@ -30,15 +30,15 @@ flowchart TB
 ## Request flow
 
 1. The Next.js client authenticates through `POST /auth/login`.
-2. The browser stores the demo JWT, validates its expiry on restoration, and
+2. The browser stores the session JWT, validates its expiry on restoration, and
    Axios attaches it to API requests.
 3. Express verifies the token and enforces passenger or driver roles.
 4. Controllers validate input and delegate business rules to services.
 5. Prisma executes queries through the official PostgreSQL driver adapter.
 6. Pool matching uses a serializable transaction and retries serialization
    conflicts to prevent concurrent seat overbooking.
-7. Matching can add a compatible passenger to an accepted pool until any ride
-   starts; unmatched requests are retried when driver capacity becomes free.
+7. Online drivers see pending requests from their current area; the first
+   eligible driver to accept receives the ride.
 
 ## Ride request sequence
 
@@ -46,16 +46,18 @@ flowchart TB
 sequenceDiagram
     participant P as Passenger UI
     participant A as Express API
-    participant M as Pool matcher
+    participant D as Driver UI
     participant DB as PostgreSQL
 
     P->>A: POST /rides + JWT
     A->>DB: Create REQUESTED ride (15,000 paisa)
-    A->>M: Match ride
-    M->>DB: Serializable pickup/destination/capacity transaction
-    DB-->>M: Pool + member + MATCHED ride
-    M-->>A: Matched pool
-    A-->>P: Ride (13,000 paisa) + pool ID
+    A-->>P: Waiting for a nearby driver
+    D->>A: GET /driver/requests
+    A-->>D: Requests matching current area
+    D->>A: PATCH /driver/requests/:id/accept
+    A->>DB: Serializable capacity-safe pool assignment
+    DB-->>A: Pool + member + MATCHED ride
+    A-->>D: Request accepted
 ```
 
 ## Docker startup
@@ -63,8 +65,7 @@ sequenceDiagram
 ```mermaid
 flowchart LR
     PG[PostgreSQL healthy] --> MIG[Prisma migrate deploy]
-    MIG --> SEED[Optional idempotent seed]
-    SEED --> API[Express healthy]
+    MIG --> API[Express healthy]
     API --> WEB[Next.js starts]
 ```
 
