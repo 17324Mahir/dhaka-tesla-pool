@@ -234,7 +234,7 @@ npm run lint
 npm run build
 ```
 
-The 26 backend tests cover validation, fare/receipt calculation, destination-aware
+The 27 backend tests cover validation, driver onboarding, fare/receipt calculation, destination-aware
 pool eligibility, Tesla capacity, serialization-conflict retries, ride
 ownership, passenger privacy, tip validation, and ride state transitions.
 

@@ -37,6 +37,9 @@ Validation errors use HTTP `400` and include field-level details:
 
 `role` must be `PASSENGER` or `DRIVER`. Successful response (`201`):
 
+Driver registration also creates an assigned three-seat Tesla in offline mode.
+The driver must go online before waiting passenger requests can be matched.
+
 ```json
 {
   "message": "User registered successfully",

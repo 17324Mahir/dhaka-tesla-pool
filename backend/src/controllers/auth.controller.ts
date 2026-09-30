@@ -5,6 +5,10 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import prisma from "../prisma/client";
 import {
+  createDefaultTeslaData,
+  ensureDriverTesla,
+} from "../services/driver-onboarding.service";
+import {
   LoginBody,
   RegisterBody,
 } from "../validation/request.schemas";
@@ -28,13 +32,23 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role,
-      },
+    const user = await prisma.$transaction(async (transaction) => {
+      const createdUser = await transaction.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          role,
+        },
+      });
+
+      if (role === "DRIVER") {
+        await transaction.tesla.create({
+          data: createDefaultTeslaData(createdUser.id, createdUser.name),
+        });
+      }
+
+      return createdUser;
     });
 
     res.status(201).json({
@@ -78,6 +92,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     if (!validPassword) {
       res.status(401).json({ message: "Invalid email or password" });
       return;
+    }
+
+    if (user.role === "DRIVER") {
+      await ensureDriverTesla(user.id, user.name);
     }
 
     const token = jwt.sign(

@@ -229,7 +229,11 @@ export default function DriverDashboard() {
             {isLoading ? (
               <p className="text-sm text-white/55">Loading ride requests…</p>
             ) : rides.length === 0 ? (
-              <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/55">No ride requests are available.</p>
+              <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/55">
+                {tesla && !tesla.isOnline
+                  ? "Go online to receive passenger requests."
+                  : "No assigned ride requests yet. New matches appear automatically."}
+              </p>
             ) : rides.map((ride) => {
               const action = nextAction[ride.status];
               const pool = ride.poolMember?.pool;

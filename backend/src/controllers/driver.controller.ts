@@ -5,6 +5,7 @@ import prisma from "../prisma/client";
 import { canTransitionRide } from "../services/ride-state.service";
 import { calculateReceipt } from "../services/fare.service";
 import { matchWaitingRides } from "../services/pool.service";
+import { ensureDriverTesla } from "../services/driver-onboarding.service";
 import {
   DriverStatusBody,
   RideStatusBody,
@@ -125,7 +126,7 @@ export const getDriverDashboard = async (
       return;
     }
 
-    const tesla = await prisma.tesla.findUnique({
+    let tesla = await prisma.tesla.findUnique({
       where: { driverId: req.user.id },
       include: {
         pools: {
@@ -145,6 +146,37 @@ export const getDriverDashboard = async (
         },
       },
     });
+
+    if (!tesla) {
+      const driver = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { name: true },
+      });
+
+      if (driver) {
+        await ensureDriverTesla(req.user.id, driver.name);
+        tesla = await prisma.tesla.findUnique({
+          where: { driverId: req.user.id },
+          include: {
+            pools: {
+              where: { status: { in: [PoolStatus.WAITING, PoolStatus.ACTIVE] } },
+              include: {
+                members: {
+                  where: {
+                    ride: {
+                      status: {
+                        notIn: [RideStatus.COMPLETED, RideStatus.CANCELLED],
+                      },
+                    },
+                  },
+                  select: { seats: true },
+                },
+              },
+            },
+          },
+        });
+      }
+    }
 
     if (!tesla) {
       res.status(404).json({ message: "No Tesla is assigned to this driver" });
