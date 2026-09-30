@@ -9,6 +9,8 @@ const SEED_IDS = {
   rafiqRide: "00000000-0000-4000-8000-000000000003",
   nusratMember: "00000000-0000-4000-8000-000000000004",
   rafiqMember: "00000000-0000-4000-8000-000000000005",
+  nusratHistory: "00000000-0000-4000-8000-000000000006",
+  rafiqHistory: "00000000-0000-4000-8000-000000000007",
 } as const;
 
 async function main() {
@@ -152,6 +154,26 @@ async function main() {
         rideId: SEED_IDS.rafiqRide,
         seats: 1,
         individualFare: pooledFare,
+      },
+    });
+
+    await tx.rideStatusHistory.upsert({
+      where: { id: SEED_IDS.nusratHistory },
+      update: { rideId: SEED_IDS.nusratRide, status: RideStatus.MATCHED },
+      create: {
+        id: SEED_IDS.nusratHistory,
+        rideId: SEED_IDS.nusratRide,
+        status: RideStatus.MATCHED,
+      },
+    });
+
+    await tx.rideStatusHistory.upsert({
+      where: { id: SEED_IDS.rafiqHistory },
+      update: { rideId: SEED_IDS.rafiqRide, status: RideStatus.MATCHED },
+      create: {
+        id: SEED_IDS.rafiqHistory,
+        rideId: SEED_IDS.rafiqRide,
+        status: RideStatus.MATCHED,
       },
     });
   });

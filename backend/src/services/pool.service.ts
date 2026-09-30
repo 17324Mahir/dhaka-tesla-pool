@@ -6,6 +6,30 @@ import { canTransitionRide } from "./ride-state.service";
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
 
+export function shouldRetryPoolMatch(error: unknown, attempt: number): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2034" &&
+    attempt < MAX_TRANSACTION_ATTEMPTS
+  );
+}
+
+export async function withPoolMatchRetries<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  for (let attempt = 1; attempt <= MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!shouldRetryPoolMatch(error, attempt)) {
+        throw error;
+      }
+    }
+  }
+
+  throw new PoolMatchError("Pool matching failed");
+}
+
 export class PoolMatchError extends Error {}
 
 export class NoTeslaAvailableError extends PoolMatchError {
@@ -59,9 +83,16 @@ async function matchInTransaction(rideId: string) {
         include: {
           tesla: true,
           members: {
+            where: {
+              ride: {
+                status: {
+                  notIn: [RideStatus.COMPLETED, RideStatus.CANCELLED],
+                },
+              },
+            },
             select: {
               seats: true,
-              ride: { select: { pickup: true } },
+              ride: { select: { pickup: true, destination: true } },
             },
           },
         },
@@ -75,18 +106,24 @@ async function matchInTransaction(rideId: string) {
         );
 
         const pickup = pool.members[0]?.ride.pickup;
+        const destination = pool.members[0]?.ride.destination;
 
         return Boolean(
-          pickup &&
+          pickup && destination &&
             isPoolMatchEligible(
               {
                 pickup,
+                destination,
                 status: pool.status,
                 isTeslaOnline: pool.tesla.isOnline,
                 capacity: pool.tesla.capacity,
                 usedSeats,
               },
-              { pickup: ride.pickup, seats: ride.seats },
+              {
+                pickup: ride.pickup,
+                destination: ride.destination,
+                seats: ride.seats,
+              },
             ),
         );
       });
@@ -119,7 +156,7 @@ async function matchInTransaction(rideId: string) {
             members: {
               select: {
                 seats: true,
-                ride: { select: { pickup: true } },
+                ride: { select: { pickup: true, destination: true } },
               },
             },
           },
@@ -144,6 +181,7 @@ async function matchInTransaction(rideId: string) {
         data: {
           status: RideStatus.MATCHED,
           fare: pooledFare,
+          statusHistory: { create: { status: RideStatus.MATCHED } },
         },
       });
 
@@ -160,20 +198,5 @@ async function matchInTransaction(rideId: string) {
 }
 
 export async function matchRideToPool(rideId: string) {
-  for (let attempt = 1; attempt <= MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
-    try {
-      return await matchInTransaction(rideId);
-    } catch (error) {
-      const shouldRetry =
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2034" &&
-        attempt < MAX_TRANSACTION_ATTEMPTS;
-
-      if (!shouldRetry) {
-        throw error;
-      }
-    }
-  }
-
-  throw new PoolMatchError("Pool matching failed");
+  return withPoolMatchRetries(() => matchInTransaction(rideId));
 }

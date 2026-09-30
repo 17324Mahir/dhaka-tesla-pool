@@ -100,7 +100,8 @@ Every passenger endpoint requires a passenger JWT. Driver tokens receive
 Supported areas are Banani, Gulshan, Mohakhali, Dhanmondi, Mirpur, Uttara,
 Farmgate, and Bashundhara. Seats must be an integer from 1 to 3. Matching is
 automatic and requires a same-pickup `WAITING` pool, an online Tesla, and
-enough remaining capacity.
+enough remaining capacity. The existing pool destination must also be within
+5 km of the requested destination according to `src/data/zones.json`.
 
 Matched response (`201`):
 
@@ -125,7 +126,7 @@ status `REQUESTED`, and fare `15000`. Possible errors: `400` invalid request,
 
 ### List own rides
 
-`GET /rides/my`
+`GET /rides/history` (preferred) or `GET /rides/my` (compatibility alias)
 
 No request body. Successful response (`200`):
 
@@ -138,7 +139,16 @@ No request body. Successful response (`200`):
     "seats": 1,
     "status": "MATCHED",
     "fare": 13000,
-    "createdAt": "2026-09-30T10:00:00.000Z"
+    "createdAt": "2026-09-30T10:00:00.000Z",
+    "statusHistory": [
+      { "status": "REQUESTED", "createdAt": "2026-09-30T10:00:00.000Z" },
+      { "status": "MATCHED", "createdAt": "2026-09-30T10:00:01.000Z" }
+    ],
+    "poolMember": {
+      "pool": {
+        "tesla": { "name": "Bullet", "driver": { "name": "Jashim" } }
+      }
+    }
   }
 ]
 ```
@@ -166,14 +176,68 @@ ride not found, `500` cancellation failed.
 
 `GET /pool/my`
 
-No request body. Successful response (`200`) is an array of pools including
-the Tesla and member rides. Possible errors: `401`, `403`, or `500` cannot
-fetch pool.
+No request body. The response exposes aggregate occupancy plus only the
+authenticated passenger's membership. It never includes another passenger's
+route, fare, status, name, or identifier:
+
+```json
+[
+  {
+    "id": "uuid",
+    "status": "WAITING",
+    "tesla": { "id": "uuid", "name": "Bullet", "capacity": 3 },
+    "memberCount": 2,
+    "usedSeats": 2,
+    "availableSeats": 1,
+    "myMembership": {
+      "id": "uuid",
+      "seats": 1,
+      "individualFare": 13000,
+      "ride": {
+        "id": "uuid",
+        "pickup": "Banani",
+        "destination": "Mohakhali",
+        "status": "MATCHED",
+        "fare": 13000
+      }
+    }
+  }
+]
+```
+
+Possible errors: `401`, `403`, or `500` cannot fetch pool.
 
 ## Driver
 
 Every driver endpoint requires a driver JWT. Passenger tokens receive `403`.
 A driver can only accept or update pools assigned to their own Tesla.
+
+### Driver and Tesla summary
+
+`GET /driver/dashboard`
+
+Returns the assigned Tesla's online state and capacity summary:
+
+```json
+{
+  "id": "uuid",
+  "name": "Bullet",
+  "capacity": 3,
+  "isOnline": true,
+  "occupiedSeats": 2,
+  "availableSeats": 1
+}
+```
+
+### Go online or offline
+
+`PATCH /driver/status`
+
+```json
+{ "isOnline": true }
+```
+
+Going offline is rejected with `409` while the Tesla has an active pool.
 
 ### List assigned rides
 
@@ -209,7 +273,9 @@ Possible errors: `401`, `403`, or `500` cannot fetch driver rides.
 `PATCH /driver/pool/:id/accept`
 
 No request body. The pool must be `WAITING`, non-empty, assigned to the
-driver's online Tesla, and identified by a UUID.
+driver’s online Tesla, and identified by a UUID.
+The API rechecks that active member seats do not exceed Tesla capacity before
+acceptance.
 
 ```json
 { "message": "Pool accepted", "poolId": "uuid" }
@@ -249,6 +315,26 @@ arrival response with status `STARTED`. Possible errors: `400`, `401`, `403`,
 No request body. Requires `STARTED`. The response contains status `COMPLETED`.
 When every ride in the pool is completed or cancelled, the pool becomes
 `COMPLETED`. Possible errors: `400`, `401`, `403`, `404`, `409`, or `500`.
+
+### Cancel an assigned ride
+
+`PATCH /driver/ride/:id/cancel`
+
+The pool must be active and the ride must still be `MATCHED`. The response
+shape matches the other lifecycle endpoints with status `CANCELLED`.
+
+### Generic lifecycle endpoint
+
+`PATCH /rides/:id/status`
+
+This role-protected driver endpoint supports the evaluator-facing API shape:
+
+```json
+{ "status": "DRIVER_ARRIVED" }
+```
+
+Allowed requested statuses are `DRIVER_ARRIVED`, `STARTED`, `COMPLETED`, and
+`CANCELLED`. The same ownership, pool acceptance, and transition rules apply.
 
 ## Utility routes
 

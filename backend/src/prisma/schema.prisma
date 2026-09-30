@@ -38,6 +38,7 @@ model User {
   tesla Tesla?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Tesla {
@@ -59,13 +60,25 @@ model Ride {
   passengerId String
   passenger   User   @relation("PassengerRides", fields: [passengerId], references: [id])
 
-  pickup      String
-  destination String
-  seats       Int
-  status      RideStatus  @default(REQUESTED)
-  fare        Int
-  poolMember  PoolMember?
-  createdAt   DateTime    @default(now())
+  pickup        String
+  destination   String
+  seats         Int
+  status        RideStatus          @default(REQUESTED)
+  fare          Int
+  poolMember    PoolMember?
+  statusHistory RideStatusHistory[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+}
+
+model RideStatusHistory {
+  id        String     @id @default(uuid())
+  rideId    String
+  ride      Ride       @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  status    RideStatus
+  createdAt DateTime   @default(now())
+
+  @@index([rideId, createdAt])
 }
 
 model Pool {
@@ -82,10 +95,10 @@ model PoolMember {
   id String @id @default(uuid())
 
   poolId String
-  pool   Pool   @relation(fields: [poolId], references: [id])
+  pool   Pool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
 
   rideId String @unique
-  ride   Ride   @relation(fields: [rideId], references: [id])
+  ride   Ride   @relation(fields: [rideId], references: [id], onDelete: Cascade)
 
   individualFare Int
   seats          Int

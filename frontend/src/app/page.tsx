@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import api, { getApiError } from "@/lib/api";
 import { AuthUser, saveSession } from "@/lib/auth";
@@ -140,6 +141,12 @@ export default function Home() {
           </form>
 
           <div className="mt-8 border-t border-[#dbe5df] pt-6">
+            <p className="mb-5 text-sm text-[#668176]">
+              New here?{" "}
+              <Link className="font-semibold text-emerald-700" href="/register">
+                Create an account
+              </Link>
+            </p>
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-[#668176]">
               Demo accounts
             </p>

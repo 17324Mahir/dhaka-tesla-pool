@@ -19,9 +19,11 @@ dashboards.
 1. Sign in at <https://console.neon.tech> with GitHub.
 2. Create a project named `dhaka-tesla-pool` in a nearby region, preferably
    Singapore.
-3. In **Connect**, select the pooled connection and copy its connection string.
-4. Keep the complete string, including `sslmode=require`, for Render's
-   `DATABASE_URL` value.
+3. In **Connect**, copy both connection strings: pooled for application traffic
+   and direct (hostname without `-pooler`) for migrations.
+4. Keep the complete strings, including `sslmode=require`. Set the pooled value
+   as Render's `DATABASE_URL` and the direct value as
+   `DATABASE_URL_UNPOOLED`.
 
 The API applies the committed Prisma migration and loads the idempotent demo
 seed whenever the Render service starts.
@@ -32,8 +34,8 @@ seed whenever the Render service starts.
    Instance**.
 2. Connect the GitHub repository
    `17324Mahir/dhaka-tesla-pool` and select the `master` branch.
-3. Render detects `render.yaml`. When prompted for `DATABASE_URL`, paste the
-   pooled Neon connection string.
+3. Render detects `render.yaml`. Paste the pooled Neon connection into
+   `DATABASE_URL` and the direct connection into `DATABASE_URL_UNPOOLED`.
 4. Create the free service and wait for its health status to become **Live**.
 5. Open the generated URL. It should return:
 

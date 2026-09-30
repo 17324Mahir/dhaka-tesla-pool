@@ -5,6 +5,7 @@ import {
   createRide,
   getMyRides,
 } from "../controllers/ride.controller";
+import { updateRideStatus } from "../controllers/driver.controller";
 import {
   authenticate,
 } from "../middleware/auth.middleware";
@@ -16,18 +17,44 @@ import {
 import {
   createRideBodySchema,
   resourceIdParamsSchema,
+  rideStatusBodySchema,
 } from "../validation/request.schemas";
 
 const router = Router();
 
-router.use(authenticate, authorizeRoles(Role.PASSENGER));
-
-router.post("/", validateBody(createRideBodySchema), createRide);
-router.get("/my", getMyRides);
+router.post(
+  "/",
+  authenticate,
+  authorizeRoles(Role.PASSENGER),
+  validateBody(createRideBodySchema),
+  createRide,
+);
+router.get(
+  "/history",
+  authenticate,
+  authorizeRoles(Role.PASSENGER),
+  getMyRides,
+);
+router.get(
+  "/my",
+  authenticate,
+  authorizeRoles(Role.PASSENGER),
+  getMyRides,
+);
 router.patch(
   "/:id/cancel",
+  authenticate,
+  authorizeRoles(Role.PASSENGER),
   validateParams(resourceIdParamsSchema),
   cancelRide,
+);
+router.patch(
+  "/:id/status",
+  authenticate,
+  authorizeRoles(Role.DRIVER),
+  validateParams(resourceIdParamsSchema),
+  validateBody(rideStatusBodySchema),
+  updateRideStatus,
 );
 
 export default router;

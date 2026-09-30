@@ -23,21 +23,26 @@ seed, frontend, and Docker flows are implemented.
 - Request rides across eight predefined Dhaka areas.
 - Join a same-pickup Tesla pool without exceeding capacity.
 - View current pools, fares, statuses, and ride history.
+- See only their own route, fare, and status inside a shared pool.
 - Cancel owned rides while they are `REQUESTED` or `MATCHED`.
 
 ### Pooling and fares
 
 - Online Tesla selection with three-seat demo capacity.
+- Same-pickup and nearby-destination matching using committed Dhaka coordinates.
 - Serializable matching transactions with retry protection.
 - Automatic `REQUESTED → MATCHED` transition.
 - Base fare, distance charge, and flat pool discount stored in integer paisa.
 - Seat release and empty-pool cleanup after cancellation.
+- Persisted ride-status history for lifecycle auditing.
 
 ### Driver
 
 - View rides assigned to the authenticated driver's Tesla.
+- Go online/offline and see live capacity (offline is blocked during an active pool).
 - Accept waiting pools owned by that driver.
 - Mark arrival, start rides, and complete rides through validated transitions.
+- Cancel a matched ride and use the role-protected generic status endpoint.
 - Automatically complete a pool after all member rides finish.
 
 ### Frontend
@@ -71,6 +76,8 @@ flowchart LR
 
 See [Architecture](docs/architecture.md), [ERD](docs/erd.md), and the complete
 [API reference](docs/API.md) for detailed diagrams and request examples.
+The [evaluation checklist](docs/evaluation-checklist.md) maps every requested
+area to its implementation and identifies the remaining submission-only work.
 
 For a public demo, follow the [free deployment guide](docs/deployment.md) to
 host PostgreSQL on Neon, the API on Render, and the frontend on Vercel.
@@ -81,8 +88,8 @@ Capture these presentation-ready states from the running application before
 submission and add the image links here:
 
 1. Login page at `/login`.
-2. Passenger dashboard at `/passenger`.
-3. Driver dashboard at `/driver`.
+2. Passenger dashboard at `/passenger/dashboard`.
+3. Driver dashboard at `/driver/dashboard`.
 4. Passenger pool card after Nusrat and Rafiq are matched.
 
 The seeded accounts and waiting pool below reproduce the required views.
@@ -107,7 +114,9 @@ Create `backend/.env`:
 ```env
 PORT=5000
 DATABASE_URL="postgresql://YOUR_USER@localhost:5432/dhaka_tesla_pool"
+DATABASE_URL_UNPOOLED="postgresql://YOUR_USER@localhost:5432/dhaka_tesla_pool"
 JWT_SECRET="replace_with_a_long_random_secret"
+CORS_ORIGINS="http://localhost:3000"
 ```
 
 Create the database, apply migrations, seed it, and start the API:
@@ -210,8 +219,9 @@ npm run lint
 npm run build
 ```
 
-Backend coverage includes validation, fare calculation, all pool eligibility
-rules, Tesla capacity, ride ownership, and ride state transitions.
+The 21 backend tests cover validation, fare calculation, destination-aware
+pool eligibility, Tesla capacity, serialization-conflict retries, ride
+ownership, passenger privacy, and ride state transitions.
 
 ## API
 
@@ -228,7 +238,9 @@ rules, Tesla capacity, ride ownership, and ride state transitions.
 | --- | --- | --- |
 | `POST` | `/rides` | Passenger |
 | `GET` | `/rides/my` | Passenger |
+| `GET` | `/rides/history` | Passenger |
 | `PATCH` | `/rides/:id/cancel` | Owning passenger |
+| `PATCH` | `/rides/:id/status` | Assigned driver |
 | `GET` | `/pool/my` | Passenger |
 
 ### Driver lifecycle
@@ -236,10 +248,13 @@ rules, Tesla capacity, ride ownership, and ride state transitions.
 | Method | Endpoint | Access |
 | --- | --- | --- |
 | `GET` | `/driver/rides` | Driver |
+| `GET` | `/driver/dashboard` | Driver |
+| `PATCH` | `/driver/status` | Driver |
 | `PATCH` | `/driver/pool/:id/accept` | Assigned driver |
 | `PATCH` | `/driver/ride/:id/arrival` | Assigned driver |
 | `PATCH` | `/driver/ride/:id/start` | Assigned driver |
 | `PATCH` | `/driver/ride/:id/complete` | Assigned driver |
+| `PATCH` | `/driver/ride/:id/cancel` | Assigned driver |
 
 Authenticated requests use:
 
@@ -268,8 +283,8 @@ both the ride fare and individual pool fare to 13,000 paisa.
 
 ## Decisions and trade-offs
 
-- Eight canonical Dhaka areas replace maps/geocoding to keep matching
-  deterministic for the assessment.
+- Eight canonical Dhaka areas and a 5 km destination-compatibility radius
+  replace maps/geocoding to keep matching deterministic for the assessment.
 - The distance charge is a placeholder rather than a computed route distance.
 - JWTs are stateless and expire after one day.
 - Pool matching uses serializable database transactions to prioritize capacity
@@ -283,8 +298,8 @@ both the ride fare and individual pool fare to 13,000 paisa.
 - No refresh tokens or token revocation.
 - The browser stores the demo JWT in `localStorage`; production systems should
   prefer secure, HTTP-only cookies and CSRF protection.
-- Pool destinations are not route-optimized; matching currently uses pickup
-  area and capacity only.
+- Destination proximity is deterministic rather than traffic-aware route
+  optimization.
 - Requests left waiting without a Tesla are not retried automatically when a
   vehicle becomes available; the current prototype matches at creation time.
 

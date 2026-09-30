@@ -31,6 +31,7 @@ export const createRide = async (
         seats,
         fare: calculateFare(seats, false),
         status: RideStatus.REQUESTED,
+        statusHistory: { create: { status: RideStatus.REQUESTED } },
       },
     });
 
@@ -74,6 +75,25 @@ export const getMyRides = async (
 
     const rides = await prisma.ride.findMany({
       where: { passengerId: req.user.id },
+      include: {
+        statusHistory: { orderBy: { createdAt: "asc" } },
+        poolMember: {
+          select: {
+            individualFare: true,
+            pool: {
+              select: {
+                id: true,
+                tesla: {
+                  select: {
+                    name: true,
+                    driver: { select: { name: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 
@@ -121,9 +141,17 @@ export const cancelRide = async (
     }
 
     const updatedRide = await prisma.$transaction(async (tx) => {
-      const updated = await tx.ride.update({
-        where: { id },
+      const update = await tx.ride.updateMany({
+        where: { id, status: ride.status },
         data: { status: RideStatus.CANCELLED },
+      });
+
+      if (update.count !== 1) {
+        return null;
+      }
+
+      await tx.rideStatusHistory.create({
+        data: { rideId: id, status: RideStatus.CANCELLED },
       });
 
       const membership = await tx.poolMember.findUnique({
@@ -131,19 +159,30 @@ export const cancelRide = async (
       });
 
       if (membership) {
-        await tx.poolMember.delete({ where: { rideId: id } });
-
-        const remainingMembers = await tx.poolMember.count({
-          where: { poolId: membership.poolId },
+        const remainingRides = await tx.ride.count({
+          where: {
+            poolMember: { poolId: membership.poolId },
+            status: {
+              notIn: [RideStatus.COMPLETED, RideStatus.CANCELLED],
+            },
+          },
         });
 
-        if (remainingMembers === 0) {
-          await tx.pool.delete({ where: { id: membership.poolId } });
+        if (remainingRides === 0) {
+          await tx.pool.update({
+            where: { id: membership.poolId },
+            data: { status: "CANCELLED" },
+          });
         }
       }
 
-      return updated;
+      return tx.ride.findUniqueOrThrow({ where: { id } });
     });
+
+    if (!updatedRide) {
+      res.status(409).json({ message: "Ride state changed; refresh and try again" });
+      return;
+    }
 
     res.json({ message: "Ride cancelled", ride: updatedRide });
   } catch (error) {

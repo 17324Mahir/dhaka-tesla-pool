@@ -13,13 +13,17 @@ import { errorHandler } from "./middleware/error.middleware";
 dotenv.config();
 
 const app = express();
+const allowedOrigins = (
+  process.env.CORS_ORIGINS ??
+  "http://localhost:3000,https://dhaka-tesla-pool-three.vercel.app"
+)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://dhaka-tesla-pool-three.vercel.app",
-    ],
+    origin: allowedOrigins,
   }),
 );
 app.use(express.json({ limit: "100kb" }));

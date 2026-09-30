@@ -7,6 +7,7 @@ erDiagram
     Tesla ||--o{ Pool : serves
     Pool ||--o{ PoolMember : contains
     Ride ||--o| PoolMember : joins
+    Ride ||--o{ RideStatusHistory : records
 
     User {
       string id PK
@@ -15,6 +16,7 @@ erDiagram
       string password
       Role role
       datetime createdAt
+      datetime updatedAt
     }
 
     Tesla {
@@ -34,6 +36,7 @@ erDiagram
       RideStatus status
       int fare
       datetime createdAt
+      datetime updatedAt
     }
 
     Pool {
@@ -48,6 +51,13 @@ erDiagram
       string rideId FK
       int individualFare
       int seats
+    }
+
+    RideStatusHistory {
+      string id PK
+      string rideId FK
+      RideStatus status
+      datetime createdAt
     }
 ```
 

@@ -79,6 +79,23 @@ export const resourceIdParamsSchema = z.object({
   id: z.string().uuid("Invalid resource ID"),
 });
 
+export const driverStatusBodySchema = z
+  .object({ isOnline: z.boolean() })
+  .strict();
+
+export const rideStatusBodySchema = z
+  .object({
+    status: z.enum([
+      "DRIVER_ARRIVED",
+      "STARTED",
+      "COMPLETED",
+      "CANCELLED",
+    ]),
+  })
+  .strict();
+
 export type RegisterBody = z.infer<typeof registerBodySchema>;
 export type LoginBody = z.infer<typeof loginBodySchema>;
 export type CreateRideBody = z.infer<typeof createRideBodySchema>;
+export type DriverStatusBody = z.infer<typeof driverStatusBodySchema>;
+export type RideStatusBody = z.infer<typeof rideStatusBodySchema>;

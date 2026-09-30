@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api, { getApiError } from "@/lib/api";
 import { clearSession, getStoredUser } from "@/lib/auth";
+import Navbar from "@/components/Navbar";
+import StatusBadge from "@/components/StatusBadge";
+import TeslaCard from "@/components/TeslaCard";
 
 interface DriverRide {
   id: string;
@@ -26,6 +29,15 @@ interface DriverRide {
   };
 }
 
+interface TeslaSummary {
+  id: string;
+  name: string;
+  capacity: number;
+  isOnline: boolean;
+  occupiedSeats: number;
+  availableSeats: number;
+}
+
 const nextAction: Record<string, { label: string; endpoint: string }> = {
   MATCHED: { label: "Mark arrival", endpoint: "arrival" },
   DRIVER_ARRIVED: { label: "Start trip", endpoint: "start" },
@@ -35,6 +47,7 @@ const nextAction: Record<string, { label: string; endpoint: string }> = {
 export default function DriverDashboard() {
   const router = useRouter();
   const [rides, setRides] = useState<DriverRide[]>([]);
+  const [tesla, setTesla] = useState<TeslaSummary | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -42,9 +55,13 @@ export default function DriverDashboard() {
 
   const loadRides = useCallback(async () => {
     try {
-      const response = await api.get<DriverRide[]>("/driver/rides");
+      const [ridesResponse, dashboardResponse] = await Promise.all([
+        api.get<DriverRide[]>("/driver/rides"),
+        api.get<TeslaSummary>("/driver/dashboard"),
+      ]);
       setError("");
-      setRides(response.data);
+      setRides(ridesResponse.data);
+      setTesla(dashboardResponse.data);
     } catch (loadError) {
       setError(getApiError(loadError, "Could not load driver rides"));
     } finally {
@@ -114,6 +131,44 @@ export default function DriverDashboard() {
     }
   }
 
+  async function toggleStatus() {
+    if (!tesla) return;
+
+    setError("");
+    setMessage("");
+    setPendingId("tesla-status");
+
+    try {
+      const response = await api.patch<{ message: string }>("/driver/status", {
+        isOnline: !tesla.isOnline,
+      });
+      setMessage(response.data.message);
+      await loadRides();
+    } catch (statusError) {
+      setError(getApiError(statusError, "Could not update driver status"));
+    } finally {
+      setPendingId("");
+    }
+  }
+
+  async function cancelRide(ride: DriverRide) {
+    setError("");
+    setMessage("");
+    setPendingId(ride.id);
+
+    try {
+      const response = await api.patch<{ message: string }>(
+        `/driver/ride/${ride.id}/cancel`,
+      );
+      setMessage(response.data.message);
+      await loadRides();
+    } catch (cancelError) {
+      setError(getApiError(cancelError, "Could not cancel the ride"));
+    } finally {
+      setPendingId("");
+    }
+  }
+
   function logout() {
     clearSession();
     router.replace("/login");
@@ -121,24 +176,21 @@ export default function DriverDashboard() {
 
   return (
     <main className="min-h-screen bg-[#071c16] text-white">
-      <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Dhaka Tesla Pool</p>
-            <h1 className="mt-1 text-xl font-semibold">Driver dashboard</h1>
-          </div>
-          <button className="text-sm font-semibold text-white/60 hover:text-white" onClick={logout}>Log out</button>
-        </div>
-      </header>
+      <Navbar title="Driver dashboard" onLogout={logout} dark />
 
       <div className="mx-auto max-w-6xl px-5 py-8">
-        <section className="flex flex-col justify-between gap-6 rounded-3xl bg-emerald-300 p-7 text-[#083c2d] sm:flex-row sm:items-end">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em]">Driver workspace</p>
-            <h2 className="mt-3 max-w-xl text-4xl font-semibold tracking-tight">Keep every shared ride moving.</h2>
-          </div>
-          <button className="rounded-xl bg-[#083c2d] px-5 py-3 text-sm font-semibold text-white" onClick={() => void loadRides()}>Refresh requests</button>
-        </section>
+        {tesla ? (
+          <TeslaCard
+            name={tesla.name}
+            capacity={tesla.capacity}
+            availableSeats={tesla.availableSeats}
+            isOnline={tesla.isOnline}
+            pending={pendingId === "tesla-status"}
+            onToggle={() => void toggleStatus()}
+          />
+        ) : (
+          <section className="rounded-3xl bg-white/5 p-7 text-white/60">Loading assigned Tesla…</section>
+        )}
 
         {(message || error) && (
           <div className={`mt-6 rounded-2xl px-4 py-3 text-sm ${error ? "bg-red-400/10 text-red-200" : "bg-emerald-300/10 text-emerald-200"}`} role={error ? "alert" : "status"}>
@@ -172,7 +224,7 @@ export default function DriverDashboard() {
                       <p className="text-lg font-semibold">{ride.pickup} → {ride.destination}</p>
                       <p className="mt-2 text-sm text-white/55">{ride.passenger?.name ?? "Passenger"} · {ride.seats} seat{ride.seats > 1 ? "s" : ""} · {pool?.tesla.name ?? "Tesla"}</p>
                     </div>
-                    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-200">{ride.status.replaceAll("_", " ")}</span>
+                    <StatusBadge status={ride.status} />
                   </div>
                   {isWaitingForAcceptance && pool ? (
                     <button
@@ -183,13 +235,24 @@ export default function DriverDashboard() {
                       {pendingId === pool.id ? "Accepting…" : "Accept pool"}
                     </button>
                   ) : action ? (
-                    <button
-                      className="mt-6 w-full rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#083c2d] hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={Boolean(pendingId)}
-                      onClick={() => void updateRide(ride)}
-                    >
-                      {pendingId === ride.id ? "Updating…" : action.label}
-                    </button>
+                    <div className="mt-6 grid grid-cols-[1fr_auto] gap-2">
+                      <button
+                        className="rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#083c2d] hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={Boolean(pendingId)}
+                        onClick={() => void updateRide(ride)}
+                      >
+                        {pendingId === ride.id ? "Updating…" : action.label}
+                      </button>
+                      {ride.status === "MATCHED" && (
+                        <button
+                          className="rounded-xl border border-red-300/30 px-4 py-3 text-sm font-semibold text-red-200 disabled:opacity-60"
+                          disabled={Boolean(pendingId)}
+                          onClick={() => void cancelRide(ride)}
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
                   ) : null}
                 </article>
               );

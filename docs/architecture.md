@@ -49,7 +49,7 @@ sequenceDiagram
     P->>A: POST /rides + JWT
     A->>DB: Create REQUESTED ride (15,000 paisa)
     A->>M: Match ride
-    M->>DB: Serializable pool/capacity transaction
+    M->>DB: Serializable pickup/destination/capacity transaction
     DB-->>M: Pool + member + MATCHED ride
     M-->>A: Matched pool
     A-->>P: Ride (13,000 paisa) + pool ID
@@ -90,3 +90,6 @@ sequenceDiagram
 
 Authentication establishes identity. Route-level role middleware then keeps
 passengers out of driver endpoints and drivers out of passenger mutations.
+Passenger pool projections return aggregate occupancy and the requesting
+passenger's membership only; another passenger's route, fare, and status never
+leave the API.

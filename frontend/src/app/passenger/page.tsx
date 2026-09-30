@@ -4,6 +4,9 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api, { getApiError } from "@/lib/api";
 import { clearSession, getStoredUser } from "@/lib/auth";
+import Navbar from "@/components/Navbar";
+import PoolCard from "@/components/PoolCard";
+import RideCard from "@/components/RideCard";
 
 const areas = [
   "Banani",
@@ -24,6 +27,11 @@ interface Ride {
   status: string;
   fare: number;
   createdAt: string;
+  poolMember?: {
+    pool: {
+      tesla: { driver: { name: string } };
+    };
+  } | null;
 }
 
 interface Pool {
@@ -33,14 +41,16 @@ interface Pool {
     name: string;
     capacity: number;
   };
-  members: Array<{
+  memberCount: number;
+  usedSeats: number;
+  availableSeats: number;
+  myMembership: {
     id: string;
     seats: number;
+    individualFare: number;
     ride: Ride;
-  }>;
+  } | null;
 }
-
-const formatFare = (paisa: number) => `${(paisa / 100).toFixed(0)} BDT`;
 
 export default function PassengerDashboard() {
   const router = useRouter();
@@ -57,7 +67,7 @@ export default function PassengerDashboard() {
   const loadDashboard = useCallback(async () => {
     try {
       const [ridesResponse, poolsResponse] = await Promise.all([
-        api.get<Ride[]>("/rides/my"),
+        api.get<Ride[]>("/rides/history"),
         api.get<Pool[]>("/pool/my"),
       ]);
 
@@ -130,19 +140,7 @@ export default function PassengerDashboard() {
 
   return (
     <main className="min-h-screen bg-[#f2f6f3] text-[#10231c]">
-      <header className="border-b border-[#dce6e0] bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-              Dhaka Tesla Pool
-            </p>
-            <h1 className="mt-1 text-xl font-semibold">Passenger dashboard</h1>
-          </div>
-          <button className="text-sm font-semibold text-[#526b60] hover:text-[#10231c]" onClick={logout}>
-            Log out
-          </button>
-        </div>
-      </header>
+      <Navbar title="Passenger dashboard" onLogout={logout} />
 
       <div className="mx-auto grid max-w-6xl gap-6 px-5 py-8 lg:grid-cols-[0.8fr_1.2fr]">
         <section className="h-fit rounded-3xl bg-[#0c3f31] p-6 text-white shadow-xl shadow-emerald-950/10">
@@ -199,23 +197,16 @@ export default function PassengerDashboard() {
               {pools.length === 0 ? (
                 <p className="rounded-2xl bg-[#f4f7f4] p-5 text-sm text-[#62766d]">No active pool yet. Request a ride to get matched.</p>
               ) : pools.map((pool) => (
-                <article key={pool.id} className="rounded-2xl border border-[#dce6e0] p-5">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="font-semibold">{pool.tesla.name}</p>
-                      <p className="mt-1 text-sm text-[#6b7f76]">{pool.members.reduce((total, member) => total + member.seats, 0)} of {pool.tesla.capacity} seats</p>
-                    </div>
-                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">{pool.status}</span>
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    {pool.members.map((member) => (
-                      <div key={member.id} className="flex items-center justify-between rounded-xl bg-[#f4f7f4] px-3 py-2 text-sm">
-                        <span>{member.ride.pickup} → {member.ride.destination}</span>
-                        <span className="font-medium">{member.seats} seat{member.seats > 1 ? "s" : ""}</span>
-                      </div>
-                    ))}
-                  </div>
-                </article>
+                <PoolCard
+                  key={pool.id}
+                  teslaName={pool.tesla.name}
+                  capacity={pool.tesla.capacity}
+                  usedSeats={pool.usedSeats}
+                  memberCount={pool.memberCount}
+                  status={pool.status}
+                  route={pool.myMembership ? `${pool.myMembership.ride.pickup} → ${pool.myMembership.ride.destination}` : undefined}
+                  fare={pool.myMembership?.individualFare}
+                />
               ))}
             </div>
           </section>
@@ -235,18 +226,18 @@ export default function PassengerDashboard() {
               ) : rides.length === 0 ? (
                 <p className="rounded-2xl bg-[#f4f7f4] p-5 text-sm text-[#62766d]">Your ride history will appear here.</p>
               ) : rides.map((ride) => (
-                <article key={ride.id} className="flex flex-col gap-4 rounded-2xl border border-[#dce6e0] p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-semibold">{ride.pickup} → {ride.destination}</p>
-                    <p className="mt-1 text-sm text-[#6b7f76]">{ride.seats} seat{ride.seats > 1 ? "s" : ""} · {formatFare(ride.fare)}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="rounded-full bg-[#eef4f0] px-3 py-1 text-xs font-semibold text-[#496157]">{ride.status.replaceAll("_", " ")}</span>
-                    {["REQUESTED", "MATCHED"].includes(ride.status) && (
-                      <button className="text-sm font-semibold text-red-600 hover:text-red-800" onClick={() => void cancelRide(ride.id)}>Cancel</button>
-                    )}
-                  </div>
-                </article>
+                <RideCard
+                  key={ride.id}
+                  pickup={ride.pickup}
+                  destination={ride.destination}
+                  seats={ride.seats}
+                  fare={ride.fare}
+                  status={ride.status}
+                  driver={ride.poolMember?.pool.tesla.driver.name}
+                  action={["REQUESTED", "MATCHED"].includes(ride.status) ? (
+                    <button className="text-sm font-semibold text-red-600 hover:text-red-800" onClick={() => void cancelRide(ride.id)}>Cancel</button>
+                  ) : undefined}
+                />
               ))}
             </div>
           </section>
