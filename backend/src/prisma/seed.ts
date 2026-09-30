@@ -43,12 +43,14 @@ async function main() {
         name: "Bullet",
         capacity: 3,
         isOnline: true,
+        currentArea: "Banani",
       },
       create: {
         name: "Bullet",
         capacity: 3,
         driverId: driver.id,
         isOnline: true,
+        currentArea: "Banani",
       },
     });
 

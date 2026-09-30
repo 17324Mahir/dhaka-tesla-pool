@@ -30,18 +30,21 @@ seed, frontend, and Docker flows are implemented.
 
 ### Pooling and fares
 
-- Online Tesla selection with three-seat demo capacity.
+- Driver-selected pickup areas with three-seat demo capacity.
 - Same-pickup and nearby-destination matching using committed Dhaka coordinates.
 - Compatible passengers may join a waiting or accepted pool until departure.
-- Queued requests are automatically reconsidered when a driver becomes available.
+- Passenger requests remain visible to online drivers at the matching pickup area.
 - Serializable matching transactions with retry protection.
-- Automatic `REQUESTED → MATCHED` transition.
+- First-driver-wins request acceptance and `REQUESTED → MATCHED` transition.
 - Base fare, distance charge, and flat pool discount stored in integer paisa.
 - Seat release and empty-pool cleanup after cancellation.
 - Persisted ride-status history for lifecycle auditing.
 
 ### Driver
 
+- Choose or update the current Dhaka area while online.
+- View pending passenger requests from that current pickup area.
+- Accept an individual request with concurrency-safe first-driver-wins behavior.
 - View rides assigned to the authenticated driver's Tesla.
 - Go online/offline and see live capacity (offline is blocked during an active pool).
 - Accept waiting pools owned by that driver.
@@ -234,7 +237,7 @@ npm run lint
 npm run build
 ```
 
-The 27 backend tests cover validation, driver onboarding, fare/receipt calculation, destination-aware
+The 28 backend tests cover validation, driver onboarding, fare/receipt calculation, destination-aware
 pool eligibility, Tesla capacity, serialization-conflict retries, ride
 ownership, passenger privacy, tip validation, and ride state transitions.
 
@@ -264,9 +267,11 @@ ownership, passenger privacy, tip validation, and ride state transitions.
 | Method | Endpoint | Access |
 | --- | --- | --- |
 | `GET` | `/driver/rides` | Driver |
+| `GET` | `/driver/requests` | Online driver at matching pickup area |
 | `GET` | `/driver/dashboard` | Driver |
 | `GET` | `/driver/history` | Driver |
 | `PATCH` | `/driver/status` | Driver |
+| `PATCH` | `/driver/requests/:id/accept` | Eligible driver |
 | `PATCH` | `/driver/pool/:id/accept` | Assigned driver |
 | `PATCH` | `/driver/ride/:id/arrival` | Assigned driver |
 | `PATCH` | `/driver/ride/:id/start` | Assigned driver |
@@ -320,8 +325,8 @@ fare; receipts return `fare`, `tip`, and `total`.
   prefer secure, HTTP-only cookies and CSRF protection.
 - Destination proximity is deterministic rather than traffic-aware route
   optimization.
-- Requests left waiting without a Tesla are not retried automatically when a
-  vehicle becomes available; the current prototype matches at creation time.
+- Drivers select from pending requests at their current area; the prototype
+  uses predefined Dhaka areas rather than GPS coordinates.
 
 ## AI usage
 

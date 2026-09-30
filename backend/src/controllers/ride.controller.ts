@@ -4,10 +4,6 @@ import { AuthRequest } from "../middleware/auth.middleware";
 import prisma from "../prisma/client";
 import { isRideOwner } from "../services/authorization.service";
 import { canTransitionRide } from "../services/ride-state.service";
-import {
-  matchRideToPool,
-  NoTeslaAvailableError,
-} from "../services/pool.service";
 import { calculateFare, calculateReceipt } from "../services/fare.service";
 import {
   CreateRideBody,
@@ -38,28 +34,10 @@ export const createRide = async (
       },
     });
 
-    try {
-      const pool = await matchRideToPool(ride.id);
-      const matchedRide = pool.members.find(
-        (member) => member.rideId === ride.id,
-      )?.ride;
-
-      res.status(201).json({
-        message: "Ride requested and matched",
-        ride: matchedRide ?? ride,
-        poolId: pool.id,
-      });
-    } catch (error) {
-      if (error instanceof NoTeslaAvailableError) {
-        res.status(202).json({
-          message: "Ride requested; waiting for an available Tesla",
-          ride,
-        });
-        return;
-      }
-
-      throw error;
-    }
+    res.status(202).json({
+      message: "Ride requested; waiting for a nearby driver to accept",
+      ride,
+    });
   } catch (error) {
     console.error("Ride creation failed:", error);
     res.status(500).json({ message: "Ride creation failed" });

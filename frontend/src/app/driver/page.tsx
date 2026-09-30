@@ -9,6 +9,18 @@ import StatusBadge from "@/components/StatusBadge";
 import TeslaCard from "@/components/TeslaCard";
 import FareCard from "@/components/FareCard";
 
+const areas = [
+  "Banani",
+  "Gulshan",
+  "Gulshan 1",
+  "Mohakhali",
+  "Dhanmondi",
+  "Mirpur",
+  "Uttara",
+  "Farmgate",
+  "Bashundhara",
+];
+
 interface DriverRide {
   id: string;
   pickup: string;
@@ -41,6 +53,7 @@ interface TeslaSummary {
   name: string;
   capacity: number;
   isOnline: boolean;
+  currentArea: string | null;
   occupiedSeats: number;
   availableSeats: number;
 }
@@ -54,23 +67,30 @@ const nextAction: Record<string, { label: string; endpoint: string }> = {
 export default function DriverDashboard() {
   const router = useRouter();
   const [rides, setRides] = useState<DriverRide[]>([]);
+  const [requests, setRequests] = useState<DriverRide[]>([]);
   const [history, setHistory] = useState<DriverRide[]>([]);
   const [tesla, setTesla] = useState<TeslaSummary | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [pendingId, setPendingId] = useState("");
+  const [selectedArea, setSelectedArea] = useState(areas[0]);
 
   const loadRides = useCallback(async () => {
     try {
-      const [ridesResponse, dashboardResponse, historyResponse] = await Promise.all([
+      const [ridesResponse, requestsResponse, dashboardResponse, historyResponse] = await Promise.all([
         api.get<DriverRide[]>("/driver/rides"),
+        api.get<DriverRide[]>("/driver/requests"),
         api.get<TeslaSummary>("/driver/dashboard"),
         api.get<DriverRide[]>("/driver/history"),
       ]);
       setError("");
       setRides(ridesResponse.data);
+      setRequests(requestsResponse.data);
       setTesla(dashboardResponse.data);
+      if (dashboardResponse.data.currentArea) {
+        setSelectedArea(dashboardResponse.data.currentArea);
+      }
       setHistory(historyResponse.data);
     } catch (loadError) {
       setError(getApiError(loadError, "Could not load driver rides"));
@@ -157,11 +177,52 @@ export default function DriverDashboard() {
     try {
       const response = await api.patch<{ message: string }>("/driver/status", {
         isOnline: !tesla.isOnline,
+        ...(!tesla.isOnline ? { currentArea: selectedArea } : {}),
       });
       setMessage(response.data.message);
       await loadRides();
     } catch (statusError) {
       setError(getApiError(statusError, "Could not update driver status"));
+    } finally {
+      setPendingId("");
+    }
+  }
+
+  async function updateCurrentArea() {
+    if (!tesla?.isOnline) return;
+
+    setError("");
+    setMessage("");
+    setPendingId("tesla-status");
+
+    try {
+      const response = await api.patch<{ message: string }>("/driver/status", {
+        isOnline: true,
+        currentArea: selectedArea,
+      });
+      setMessage(response.data.message);
+      await loadRides();
+    } catch (statusError) {
+      setError(getApiError(statusError, "Could not update driver area"));
+    } finally {
+      setPendingId("");
+    }
+  }
+
+  async function acceptRequest(ride: DriverRide) {
+    setError("");
+    setMessage("");
+    setPendingId(ride.id);
+
+    try {
+      const response = await api.patch<{ message: string }>(
+        `/driver/requests/${ride.id}/accept`,
+      );
+      setMessage(response.data.message);
+      await loadRides();
+    } catch (acceptError) {
+      setError(getApiError(acceptError, "Could not accept the ride request"));
+      await loadRides();
     } finally {
       setPendingId("");
     }
@@ -201,7 +262,12 @@ export default function DriverDashboard() {
             capacity={tesla.capacity}
             availableSeats={tesla.availableSeats}
             isOnline={tesla.isOnline}
+            currentArea={tesla.currentArea}
+            areas={areas}
+            selectedArea={selectedArea}
             pending={pendingId === "tesla-status"}
+            onAreaChange={setSelectedArea}
+            onUpdateArea={() => void updateCurrentArea()}
             onToggle={() => void toggleStatus()}
           />
         ) : (
@@ -213,6 +279,49 @@ export default function DriverDashboard() {
             {error || message}
           </div>
         )}
+
+        <section className="mt-8">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">Nearby passengers</p>
+              <h2 className="mt-2 text-2xl font-semibold">Available requests</h2>
+            </div>
+            <span className="text-sm text-white/50">
+              {requests.length} {requests.length === 1 ? "request" : "requests"}
+            </span>
+          </div>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {!tesla?.isOnline ? (
+              <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/55">
+                Choose your area and go online to see passenger requests.
+              </p>
+            ) : requests.length === 0 ? (
+              <p className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/55">
+                No pending requests from {tesla.currentArea ?? selectedArea} right now.
+              </p>
+            ) : requests.map((ride) => (
+              <article key={ride.id} className="rounded-2xl border border-amber-200/20 bg-amber-200/5 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-lg font-semibold">{ride.pickup} → {ride.destination}</p>
+                    <p className="mt-2 text-sm text-white/55">
+                      {ride.passenger?.name ?? "Passenger"} · {ride.seats} seat{ride.seats > 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <StatusBadge status={ride.status} />
+                </div>
+                <button
+                  className="mt-6 w-full rounded-xl bg-amber-200 px-4 py-3 text-sm font-semibold text-[#4b3511] hover:bg-amber-100 disabled:opacity-60"
+                  disabled={Boolean(pendingId)}
+                  onClick={() => void acceptRequest(ride)}
+                >
+                  {pendingId === ride.id ? "Accepting…" : "Accept request"}
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <section className="mt-8">
           <div className="flex items-end justify-between gap-4">

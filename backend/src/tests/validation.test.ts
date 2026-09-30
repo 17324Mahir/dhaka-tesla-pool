@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createRideBodySchema,
+  driverStatusBodySchema,
   loginBodySchema,
   registerBodySchema,
   rideTipBodySchema,
@@ -53,4 +54,25 @@ test("ride validation canonicalizes areas and enforces Tesla capacity", () => {
     }).success,
     false,
   );
+});
+
+test("drivers must choose a supported current area when going online", () => {
+  assert.deepEqual(
+    driverStatusBodySchema.parse({ isOnline: true, currentArea: "banani" }),
+    { isOnline: true, currentArea: "Banani" },
+  );
+  assert.equal(
+    driverStatusBodySchema.safeParse({ isOnline: true }).success,
+    false,
+  );
+  assert.equal(
+    driverStatusBodySchema.safeParse({
+      isOnline: true,
+      currentArea: "Chattogram",
+    }).success,
+    false,
+  );
+  assert.deepEqual(driverStatusBodySchema.parse({ isOnline: false }), {
+    isOnline: false,
+  });
 });

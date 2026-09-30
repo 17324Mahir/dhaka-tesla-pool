@@ -7,10 +7,10 @@ This checklist maps the supplied upgrade roadmap to repository evidence.
 | Prisma data model | Complete | Users, Teslas, rides, pools, memberships, separate integer-paisa fares/tips, and ride status history in `backend/src/prisma/schema.prisma` |
 | Authentication | Complete | Register/login, bcrypt, JWT expiry validation, session restoration, auth middleware, and passenger/driver roles |
 | Passenger flow | Complete | Request, private pool summary, own fare/status/progress, cancellation, post-trip tipping, receipt, and history with driver name |
-| Driver flow | Complete | Tesla/capacity dashboard, online/offline control, pool acceptance, arrival/start/complete/cancel controls, completed history and earnings |
-| Matching | Complete | Same pickup, destination within 5 km, online Tesla, remaining capacity, safe pre-departure joins, queued-request reconciliation, serializable transaction, and conflict retries |
+| Driver flow | Complete | Current-area selection, nearby request list, request/pool acceptance, arrival/start/complete/cancel controls, completed history and earnings |
+| Matching | Complete | Driver-area/pickup match, destination within 5 km, remaining capacity, safe pre-departure joins, first-driver-wins serializable transaction, and conflict retries |
 | Validation/security | Complete | Strict Zod bodies/UUIDs, role guards, ownership checks, and private passenger projections |
-| Automated tests | Complete | 26 passing backend tests plus local API/browser acceptance checks covering fares, tips, capacity, active-pool joining, queued requests, lifecycle, privacy, session navigation, ownership, and retry behavior |
+| Automated tests | Complete | 28 passing backend tests plus local API/browser acceptance checks covering fares, tips, capacity, driver location, active-pool joining, lifecycle, privacy, session navigation, ownership, and retry behavior |
 | Seed story | Complete | Nusrat, Rafiq, Shirin, Jashim, Bullet, and a deterministic two-passenger pool that clears stale demo history/tips on reseed |
 | Frontend routes | Complete | Login, register, passenger dashboard/request/history, and driver dashboard/rides/trip |
 | Reusable UI | Complete | Navbar, RideCard, RideProgress, StatusBadge, FareCard, TeslaCard, and PoolCard |

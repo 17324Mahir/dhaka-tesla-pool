@@ -101,35 +101,29 @@ Every passenger endpoint requires a passenger JWT. Driver tokens receive
 ```
 
 Supported areas are Banani, Gulshan, Gulshan 1, Mohakhali, Dhanmondi, Mirpur,
-Uttara, Farmgate, and Bashundhara. Seats must be an integer from 1 to 3. Matching is
-automatic and requires a same-pickup `WAITING` or pre-departure `ACTIVE` pool,
-an online Tesla, and enough remaining capacity. Once any ride in an accepted
-pool starts, new requests wait for a Tesla instead. The existing pool
-destination must also be within 5 km of the requested destination according to
-`src/data/zones.json`.
+Uttara, Farmgate, and Bashundhara. Seats must be an integer from 1 to 3. The
+request stays `REQUESTED` and is shown to online drivers whose current area
+matches its pickup. When a driver accepts it, the API checks remaining capacity
+and destination compatibility according to `src/data/zones.json`.
 
-Matched response (`201`):
+Saved response (`202`):
 
 ```json
 {
-  "message": "Ride requested and matched",
+  "message": "Ride requested; waiting for a nearby driver to accept",
   "ride": {
     "id": "uuid",
     "pickup": "Banani",
     "destination": "Mohakhali",
     "seats": 1,
-    "status": "MATCHED",
-    "fare": 13000
-  },
-  "poolId": "uuid"
+    "status": "REQUESTED",
+    "fare": 15000
+  }
 }
 ```
 
-When no Tesla is available, the saved request is returned with HTTP `202`,
-status `REQUESTED`, and fare `15000`. Possible errors: `400` invalid request,
-`401` missing or invalid token, `403` wrong role, `500` creation failed.
-Queued requests are reconsidered when the API starts, a driver comes online,
-or an active pool finishes.
+Possible errors: `400` invalid request, `401` missing or invalid token, `403`
+wrong role, `500` creation failed.
 
 ### List own rides
 
@@ -258,6 +252,7 @@ Returns the assigned Tesla's online state and capacity summary:
   "name": "Bullet",
   "capacity": 3,
   "isOnline": true,
+  "currentArea": "Banani",
   "occupiedSeats": 2,
   "availableSeats": 1
 }
@@ -268,10 +263,27 @@ Returns the assigned Tesla's online state and capacity summary:
 `PATCH /driver/status`
 
 ```json
-{ "isOnline": true }
+{ "isOnline": true, "currentArea": "Banani" }
 ```
 
-Going offline is rejected with `409` while the Tesla has an active pool.
+`currentArea` is required when going online and can be sent again to update the
+driver's location. Going offline uses `{ "isOnline": false }` and is rejected
+with `409` while the Tesla has an active pool.
+
+### List nearby passenger requests
+
+`GET /driver/requests`
+
+Returns unassigned `REQUESTED` rides whose pickup matches the authenticated
+online driver's current area. Offline drivers receive an empty list.
+
+### Accept a passenger request
+
+`PATCH /driver/requests/:id/accept`
+
+The first eligible driver to accept receives the ride. The API validates the
+driver's online state, current area, compatible destination, and remaining
+capacity. A concurrent later acceptance receives `409`.
 
 ### List assigned rides
 

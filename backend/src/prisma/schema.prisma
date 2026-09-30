@@ -50,8 +50,11 @@ model Tesla {
   name     String
   capacity Int
   isOnline Boolean @default(false)
+  currentArea String?
 
   pools Pool[]
+
+  @@index([isOnline, currentArea])
 }
 
 model Ride {

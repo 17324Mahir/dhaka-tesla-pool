@@ -38,12 +38,22 @@ export class NoTeslaAvailableError extends PoolMatchError {
   }
 }
 
-async function matchInTransaction(rideId: string) {
+export class RideAlreadyAssignedError extends PoolMatchError {
+  constructor() {
+    super("Ride request was already accepted by another driver");
+  }
+}
+
+async function matchInTransaction(rideId: string, driverId?: string) {
   return prisma.$transaction(
     async (tx) => {
       const ride = await tx.ride.findUnique({
         where: { id: rideId },
-        include: { poolMember: true },
+        include: {
+          poolMember: {
+            include: { pool: { include: { tesla: true } } },
+          },
+        },
       });
 
       if (!ride) {
@@ -51,6 +61,13 @@ async function matchInTransaction(rideId: string) {
       }
 
       if (ride.poolMember) {
+        if (
+          driverId &&
+          ride.poolMember.pool.tesla.driverId !== driverId
+        ) {
+          throw new RideAlreadyAssignedError();
+        }
+
         return tx.pool.findUniqueOrThrow({
           where: { id: ride.poolMember.poolId },
           include: {
@@ -69,6 +86,8 @@ async function matchInTransaction(rideId: string) {
           status: { in: [PoolStatus.WAITING, PoolStatus.ACTIVE] },
           tesla: {
             isOnline: true,
+            currentArea: ride.pickup,
+            ...(driverId ? { driverId } : {}),
             capacity: { gte: ride.seats },
           },
           members: {
@@ -146,6 +165,8 @@ async function matchInTransaction(rideId: string) {
         const tesla = await tx.tesla.findFirst({
           where: {
             isOnline: true,
+            currentArea: ride.pickup,
+            ...(driverId ? { driverId } : {}),
             capacity: { gte: ride.seats },
             pools: {
               none: {
@@ -215,6 +236,10 @@ async function matchInTransaction(rideId: string) {
 
 export async function matchRideToPool(rideId: string) {
   return withPoolMatchRetries(() => matchInTransaction(rideId));
+}
+
+export async function matchRideToDriver(rideId: string, driverId: string) {
+  return withPoolMatchRetries(() => matchInTransaction(rideId, driverId));
 }
 
 export async function matchWaitingRides(limit = 50): Promise<number> {

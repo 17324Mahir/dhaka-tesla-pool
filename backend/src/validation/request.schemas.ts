@@ -24,7 +24,7 @@ export const loginBodySchema = z
   })
   .strict();
 
-const areaSchema = z
+export const areaSchema = z
   .enum([
     "Banani",
     "Gulshan",
@@ -81,9 +81,19 @@ export const resourceIdParamsSchema = z.object({
   id: z.string().uuid("Invalid resource ID"),
 });
 
-export const driverStatusBodySchema = z
-  .object({ isOnline: z.boolean() })
-  .strict();
+export const driverStatusBodySchema = z.discriminatedUnion("isOnline", [
+  z
+    .object({
+      isOnline: z.literal(true),
+      currentArea: areaSchema,
+    })
+    .strict(),
+  z
+    .object({
+      isOnline: z.literal(false),
+    })
+    .strict(),
+]);
 
 export const rideStatusBodySchema = z
   .object({

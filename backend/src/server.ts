@@ -10,7 +10,6 @@ import { authenticate } from "./middleware/auth.middleware";
 import { authorizeRoles } from "./middleware/role.middleware";
 import { errorHandler } from "./middleware/error.middleware";
 import prisma from "./prisma/client";
-import { matchWaitingRides } from "./services/pool.service";
 
 dotenv.config();
 
@@ -76,12 +75,4 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-
-  void matchWaitingRides()
-    .then((matchedCount) => {
-      if (matchedCount > 0) {
-        console.log(`Matched ${matchedCount} waiting ride(s) during startup`);
-      }
-    })
-    .catch((error) => console.error("Startup ride matching failed:", error));
 });

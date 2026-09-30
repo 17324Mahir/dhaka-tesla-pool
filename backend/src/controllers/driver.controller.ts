@@ -4,7 +4,12 @@ import { AuthRequest } from "../middleware/auth.middleware";
 import prisma from "../prisma/client";
 import { canTransitionRide } from "../services/ride-state.service";
 import { calculateReceipt } from "../services/fare.service";
-import { matchWaitingRides } from "../services/pool.service";
+import {
+  matchRideToDriver,
+  NoTeslaAvailableError,
+  PoolMatchError,
+  RideAlreadyAssignedError,
+} from "../services/pool.service";
 import { ensureDriverTesla } from "../services/driver-onboarding.service";
 import {
   DriverStatusBody,
@@ -68,6 +73,45 @@ export const getDriverRides = async (
   } catch (error) {
     console.error("Cannot fetch driver rides:", error);
     res.status(500).json({ message: "Cannot fetch driver rides" });
+  }
+};
+
+export const getDriverRequests = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "Authentication is required" });
+      return;
+    }
+
+    const tesla = await prisma.tesla.findUnique({
+      where: { driverId: req.user.id },
+      select: { isOnline: true, currentArea: true },
+    });
+
+    if (!tesla?.isOnline || !tesla.currentArea) {
+      res.json([]);
+      return;
+    }
+
+    const requests = await prisma.ride.findMany({
+      where: {
+        status: RideStatus.REQUESTED,
+        pickup: tesla.currentArea,
+        poolMember: null,
+      },
+      include: {
+        passenger: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    res.json(requests);
+  } catch (error) {
+    console.error("Cannot fetch nearby ride requests:", error);
+    res.status(500).json({ message: "Cannot fetch nearby ride requests" });
   }
 };
 
@@ -195,6 +239,7 @@ export const getDriverDashboard = async (
       name: tesla.name,
       capacity: tesla.capacity,
       isOnline: tesla.isOnline,
+      currentArea: tesla.currentArea,
       occupiedSeats,
       availableSeats: Math.max(tesla.capacity - occupiedSeats, 0),
     });
@@ -214,7 +259,8 @@ export const setDriverStatus = async (
       return;
     }
 
-    const { isOnline } = req.body as DriverStatusBody;
+    const input = req.body as DriverStatusBody;
+    const { isOnline } = input;
 
     if (!isOnline) {
       const activePool = await prisma.pool.findFirst({
@@ -235,7 +281,9 @@ export const setDriverStatus = async (
 
     const update = await prisma.tesla.updateMany({
       where: { driverId: req.user.id },
-      data: { isOnline },
+      data: isOnline
+        ? { isOnline: true, currentArea: input.currentArea }
+        : { isOnline: false, currentArea: null },
     });
 
     if (update.count !== 1) {
@@ -243,21 +291,64 @@ export const setDriverStatus = async (
       return;
     }
 
-    if (isOnline) {
-      try {
-        await matchWaitingRides();
-      } catch (error) {
-        console.error("Could not match waiting rides after going online:", error);
-      }
-    }
-
     res.json({
-      message: isOnline ? "Driver is online" : "Driver is offline",
+      message: isOnline
+        ? `Driver is online at ${input.currentArea}`
+        : "Driver is offline",
       isOnline,
+      currentArea: isOnline ? input.currentArea : null,
     });
   } catch (error) {
     console.error("Cannot update driver status:", error);
     res.status(500).json({ message: "Cannot update driver status" });
+  }
+};
+
+export const acceptRideRequest = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "Authentication is required" });
+      return;
+    }
+
+    const id = getResourceId(req);
+    const pool = await matchRideToDriver(id, req.user.id);
+
+    if (pool.status === PoolStatus.WAITING) {
+      await prisma.pool.updateMany({
+        where: { id: pool.id, status: PoolStatus.WAITING },
+        data: { status: PoolStatus.ACTIVE },
+      });
+    }
+
+    res.json({
+      message: "Ride request accepted",
+      rideId: id,
+      poolId: pool.id,
+    });
+  } catch (error) {
+    if (error instanceof RideAlreadyAssignedError) {
+      res.status(409).json({ message: error.message });
+      return;
+    }
+
+    if (error instanceof NoTeslaAvailableError) {
+      res.status(409).json({
+        message: "Go online at this passenger's pickup area before accepting",
+      });
+      return;
+    }
+
+    if (error instanceof PoolMatchError) {
+      res.status(409).json({ message: error.message });
+      return;
+    }
+
+    console.error("Cannot accept ride request:", error);
+    res.status(500).json({ message: "Cannot accept ride request" });
   }
 };
 
@@ -454,6 +545,13 @@ export async function transitionRide(
                   : PoolStatus.CANCELLED,
             },
           });
+
+          if (nextStatus === RideStatus.COMPLETED) {
+            await tx.tesla.update({
+              where: { id: pool.tesla.id },
+              data: { currentArea: updatedRide.destination },
+            });
+          }
           poolReleased = true;
         }
       }
@@ -464,14 +562,6 @@ export async function transitionRide(
     if (!result.ok) {
       res.status(result.status).json({ message: result.error });
       return;
-    }
-
-    if (result.poolReleased) {
-      try {
-        await matchWaitingRides();
-      } catch (error) {
-        console.error("Could not match waiting rides after pool release:", error);
-      }
     }
 
     res.json({

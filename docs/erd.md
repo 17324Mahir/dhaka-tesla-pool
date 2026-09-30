@@ -25,6 +25,7 @@ erDiagram
       string name
       int capacity
       boolean isOnline
+      string currentArea
     }
 
     Ride {

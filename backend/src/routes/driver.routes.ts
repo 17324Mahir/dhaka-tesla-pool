@@ -1,11 +1,13 @@
 import { Role } from "@prisma/client";
 import { Router } from "express";
 import {
+  acceptRideRequest,
   acceptPool,
   cancelTrip,
   completeTrip,
   getDriverDashboard,
   getDriverHistory,
+  getDriverRequests,
   getDriverRides,
   markArrival,
   setDriverStatus,
@@ -28,8 +30,14 @@ router.use(authenticate, authorizeRoles(Role.DRIVER));
 
 router.get("/dashboard", getDriverDashboard);
 router.get("/rides", getDriverRides);
+router.get("/requests", getDriverRequests);
 router.get("/history", getDriverHistory);
 router.patch("/status", validateBody(driverStatusBodySchema), setDriverStatus);
+router.patch(
+  "/requests/:id/accept",
+  validateParams(resourceIdParamsSchema),
+  acceptRideRequest,
+);
 router.patch(
   "/pool/:id/accept",
   validateParams(resourceIdParamsSchema),

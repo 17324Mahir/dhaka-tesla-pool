@@ -10,6 +10,7 @@ export const createDefaultTeslaData = (
   name: `${driverName.trim() || "Driver"}'s Tesla`,
   capacity: DEFAULT_TESLA_CAPACITY,
   isOnline: false,
+  currentArea: null,
 });
 
 export const ensureDriverTesla = async (

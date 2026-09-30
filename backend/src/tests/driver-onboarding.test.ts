@@ -11,6 +11,7 @@ test("new drivers receive an offline three-seat Tesla", () => {
     name: "Amina's Tesla",
     capacity: DEFAULT_TESLA_CAPACITY,
     isOnline: false,
+    currentArea: null,
   });
   assert.equal(DEFAULT_TESLA_CAPACITY, 3);
 });
