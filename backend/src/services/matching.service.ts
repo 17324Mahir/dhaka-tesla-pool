@@ -41,6 +41,7 @@ interface PoolCandidate {
   isTeslaOnline: boolean;
   capacity: number;
   usedSeats: number;
+  hasDepartedRide: boolean;
 }
 
 interface RideRequest {
@@ -56,7 +57,8 @@ export function isPoolMatchEligible(
   return (
     pool.pickup === ride.pickup &&
     areDestinationsCompatible(pool.destination, ride.destination) &&
-    pool.status === PoolStatus.WAITING &&
+    (pool.status === PoolStatus.WAITING || pool.status === PoolStatus.ACTIVE) &&
+    !pool.hasDepartedRide &&
     pool.isTeslaOnline &&
     hasPoolCapacity(pool.capacity, pool.usedSeats, ride.seats)
   );

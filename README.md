@@ -32,6 +32,8 @@ seed, frontend, and Docker flows are implemented.
 
 - Online Tesla selection with three-seat demo capacity.
 - Same-pickup and nearby-destination matching using committed Dhaka coordinates.
+- Compatible passengers may join a waiting or accepted pool until departure.
+- Queued requests are automatically reconsidered when a driver becomes available.
 - Serializable matching transactions with retry protection.
 - Automatic `REQUESTED → MATCHED` transition.
 - Base fare, distance charge, and flat pool discount stored in integer paisa.
@@ -232,7 +234,7 @@ npm run lint
 npm run build
 ```
 
-The 25 backend tests cover validation, fare/receipt calculation, destination-aware
+The 26 backend tests cover validation, fare/receipt calculation, destination-aware
 pool eligibility, Tesla capacity, serialization-conflict retries, ride
 ownership, passenger privacy, tip validation, and ride state transitions.
 

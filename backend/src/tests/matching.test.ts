@@ -10,6 +10,7 @@ const waitingBananiPool = {
   isTeslaOnline: true,
   capacity: 3,
   usedSeats: 2,
+  hasDepartedRide: false,
 };
 
 test("a third one-seat passenger can join a three-seat pool", () => {
@@ -45,7 +46,7 @@ test("a different pickup area is rejected", () => {
   );
 });
 
-test("an offline Tesla or non-waiting pool is rejected", () => {
+test("an offline Tesla or closed pool is rejected", () => {
   assert.equal(
     isPoolMatchEligible(
       { ...waitingBananiPool, isTeslaOnline: false },
@@ -55,7 +56,28 @@ test("an offline Tesla or non-waiting pool is rejected", () => {
   );
   assert.equal(
     isPoolMatchEligible(
+      { ...waitingBananiPool, status: PoolStatus.COMPLETED },
+      { pickup: "Banani", destination: "Gulshan", seats: 1 },
+    ),
+    false,
+  );
+});
+
+test("an accepted pool can receive a passenger until a ride departs", () => {
+  assert.equal(
+    isPoolMatchEligible(
       { ...waitingBananiPool, status: PoolStatus.ACTIVE },
+      { pickup: "Banani", destination: "Gulshan", seats: 1 },
+    ),
+    true,
+  );
+  assert.equal(
+    isPoolMatchEligible(
+      {
+        ...waitingBananiPool,
+        status: PoolStatus.ACTIVE,
+        hasDepartedRide: true,
+      },
       { pickup: "Banani", destination: "Gulshan", seats: 1 },
     ),
     false,

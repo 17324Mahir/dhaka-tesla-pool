@@ -99,9 +99,11 @@ Every passenger endpoint requires a passenger JWT. Driver tokens receive
 
 Supported areas are Banani, Gulshan, Gulshan 1, Mohakhali, Dhanmondi, Mirpur,
 Uttara, Farmgate, and Bashundhara. Seats must be an integer from 1 to 3. Matching is
-automatic and requires a same-pickup `WAITING` pool, an online Tesla, and
-enough remaining capacity. The existing pool destination must also be within
-5 km of the requested destination according to `src/data/zones.json`.
+automatic and requires a same-pickup `WAITING` or pre-departure `ACTIVE` pool,
+an online Tesla, and enough remaining capacity. Once any ride in an accepted
+pool starts, new requests wait for a Tesla instead. The existing pool
+destination must also be within 5 km of the requested destination according to
+`src/data/zones.json`.
 
 Matched response (`201`):
 
@@ -123,6 +125,8 @@ Matched response (`201`):
 When no Tesla is available, the saved request is returned with HTTP `202`,
 status `REQUESTED`, and fare `15000`. Possible errors: `400` invalid request,
 `401` missing or invalid token, `403` wrong role, `500` creation failed.
+Queued requests are reconsidered when the API starts, a driver comes online,
+or an active pool finishes.
 
 ### List own rides
 

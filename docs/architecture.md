@@ -37,6 +37,8 @@ flowchart TB
 5. Prisma executes queries through the official PostgreSQL driver adapter.
 6. Pool matching uses a serializable transaction and retries serialization
    conflicts to prevent concurrent seat overbooking.
+7. Matching can add a compatible passenger to an accepted pool until any ride
+   starts; unmatched requests are retried when driver capacity becomes free.
 
 ## Ride request sequence
 

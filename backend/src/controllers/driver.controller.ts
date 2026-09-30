@@ -4,6 +4,7 @@ import { AuthRequest } from "../middleware/auth.middleware";
 import prisma from "../prisma/client";
 import { canTransitionRide } from "../services/ride-state.service";
 import { calculateReceipt } from "../services/fare.service";
+import { matchWaitingRides } from "../services/pool.service";
 import {
   DriverStatusBody,
   RideStatusBody,
@@ -210,6 +211,14 @@ export const setDriverStatus = async (
       return;
     }
 
+    if (isOnline) {
+      try {
+        await matchWaitingRides();
+      } catch (error) {
+        console.error("Could not match waiting rides after going online:", error);
+      }
+    }
+
     res.json({
       message: isOnline ? "Driver is online" : "Driver is offline",
       isOnline,
@@ -381,6 +390,8 @@ export async function transitionRide(
         data: { rideId: id, status: nextStatus },
       });
 
+      let poolReleased = false;
+
       if (
         nextStatus === RideStatus.COMPLETED ||
         nextStatus === RideStatus.CANCELLED
@@ -411,15 +422,24 @@ export async function transitionRide(
                   : PoolStatus.CANCELLED,
             },
           });
+          poolReleased = true;
         }
       }
 
-      return { ok: true, ride: updatedRide } as const;
+      return { ok: true, ride: updatedRide, poolReleased } as const;
     });
 
     if (!result.ok) {
       res.status(result.status).json({ message: result.error });
       return;
+    }
+
+    if (result.poolReleased) {
+      try {
+        await matchWaitingRides();
+      } catch (error) {
+        console.error("Could not match waiting rides after pool release:", error);
+      }
     }
 
     res.json({

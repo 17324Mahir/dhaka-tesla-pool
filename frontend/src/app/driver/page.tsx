@@ -220,7 +220,9 @@ export default function DriverDashboard() {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Assigned work</p>
               <h2 className="mt-2 text-2xl font-semibold">Ride requests</h2>
             </div>
-            <span className="text-sm text-white/50">{rides.length} rides</span>
+            <span className="text-sm text-white/50">
+              {rides.length} {rides.length === 1 ? "ride" : "rides"}
+            </span>
           </div>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">

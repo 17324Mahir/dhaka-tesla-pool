@@ -66,7 +66,7 @@ async function matchInTransaction(rideId: string) {
 
       const candidatePools = await tx.pool.findMany({
         where: {
-          status: PoolStatus.WAITING,
+          status: { in: [PoolStatus.WAITING, PoolStatus.ACTIVE] },
           tesla: {
             isOnline: true,
             capacity: { gte: ride.seats },
@@ -75,7 +75,14 @@ async function matchInTransaction(rideId: string) {
             some: {
               ride: {
                 pickup: ride.pickup,
-                status: RideStatus.MATCHED,
+                status: {
+                  in: [RideStatus.MATCHED, RideStatus.DRIVER_ARRIVED],
+                },
+              },
+            },
+            none: {
+              ride: {
+                status: { in: [RideStatus.STARTED, RideStatus.COMPLETED] },
               },
             },
           },
@@ -83,16 +90,11 @@ async function matchInTransaction(rideId: string) {
         include: {
           tesla: true,
           members: {
-            where: {
-              ride: {
-                status: {
-                  notIn: [RideStatus.COMPLETED, RideStatus.CANCELLED],
-                },
-              },
-            },
             select: {
               seats: true,
-              ride: { select: { pickup: true, destination: true } },
+              ride: {
+                select: { pickup: true, destination: true, status: true },
+              },
             },
           },
         },
@@ -100,13 +102,24 @@ async function matchInTransaction(rideId: string) {
       });
 
       let selectedPool = candidatePools.find((pool) => {
-        const usedSeats = pool.members.reduce(
+        const activeMembers = pool.members.filter(
+          (member) =>
+            member.ride.status !== RideStatus.COMPLETED &&
+            member.ride.status !== RideStatus.CANCELLED,
+        );
+        const usedSeats = activeMembers.reduce(
           (total, member) => total + member.seats,
           0,
         );
 
-        const pickup = pool.members[0]?.ride.pickup;
-        const destination = pool.members[0]?.ride.destination;
+        const routeMember = activeMembers[0];
+        const pickup = routeMember?.ride.pickup;
+        const destination = routeMember?.ride.destination;
+        const hasDepartedRide = pool.members.some(
+          (member) =>
+            member.ride.status === RideStatus.STARTED ||
+            member.ride.status === RideStatus.COMPLETED,
+        );
 
         return Boolean(
           pickup && destination &&
@@ -118,6 +131,7 @@ async function matchInTransaction(rideId: string) {
                 isTeslaOnline: pool.tesla.isOnline,
                 capacity: pool.tesla.capacity,
                 usedSeats,
+                hasDepartedRide,
               },
               {
                 pickup: ride.pickup,
@@ -156,7 +170,9 @@ async function matchInTransaction(rideId: string) {
             members: {
               select: {
                 seats: true,
-                ride: { select: { pickup: true, destination: true } },
+                ride: {
+                  select: { pickup: true, destination: true, status: true },
+                },
               },
             },
           },
@@ -199,4 +215,33 @@ async function matchInTransaction(rideId: string) {
 
 export async function matchRideToPool(rideId: string) {
   return withPoolMatchRetries(() => matchInTransaction(rideId));
+}
+
+export async function matchWaitingRides(limit = 50): Promise<number> {
+  const waitingRides = await prisma.ride.findMany({
+    where: { status: RideStatus.REQUESTED, poolMember: null },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+  });
+
+  let matchedCount = 0;
+
+  for (const waitingRide of waitingRides) {
+    try {
+      await matchRideToPool(waitingRide.id);
+      matchedCount += 1;
+    } catch (error) {
+      if (
+        error instanceof NoTeslaAvailableError ||
+        error instanceof PoolMatchError
+      ) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  return matchedCount;
 }
